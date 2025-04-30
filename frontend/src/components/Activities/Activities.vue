@@ -470,7 +470,11 @@
         v-model:show="smsBox.show"
         v-model:message="message"
         v-model:messages="smsMessages"
-        :contact="doc.data"
+        :contact="{
+          doctype: doctype,
+          name: doc.data?.name,
+          mobile_no: doc.data?.mobile_no || doc.data?.phone || ''
+        }"
       />
     </template>
   </Dialog>
