@@ -203,6 +203,8 @@ declare module 'vue' {
     SidePanelModal: typeof import('./src/components/Modals/SidePanelModal.vue')['default']
     SLASection: typeof import('./src/components/SLASection.vue')['default']
     SmileIcon: typeof import('./src/components/Icons/SmileIcon.vue')['default']
+    SMSArea: typeof import('./src/components/Activities/SMSArea.vue')['default']
+    SMSBox: typeof import('./src/components/Activities/SMSBox.vue')['default']
     SortBy: typeof import('./src/components/SortBy.vue')['default']
     SortIcon: typeof import('./src/components/Icons/SortIcon.vue')['default']
     StepsIcon: typeof import('./src/components/Icons/StepsIcon.vue')['default']

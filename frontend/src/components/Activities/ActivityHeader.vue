@@ -73,6 +73,14 @@
         <span>{{ __('New Message') }}</span>
       </Button>
     </div>
+    <div class="flex gap-2 shrink-0" v-else-if="title == 'SMS'">
+      <Button variant="solid" @click="emit('update:smsBox', { show: true })">
+        <template #prefix>
+          <FeatherIcon name="plus" class="h-4 w-4" />
+        </template>
+        <span>{{ __('New SMS') }}</span>
+      </Button>
+    </div>
     <Dropdown v-else :options="defaultActions" @click.stop>
       <template v-slot="{ open }">
         <Button variant="solid" class="flex items-center gap-1">
@@ -112,6 +120,7 @@ const props = defineProps({
   modalRef: Object,
   emailBox: Object,
   whatsappBox: Object,
+  smsBox: Object,
 })
 
 const { makeCall } = globalStore()
@@ -119,6 +128,8 @@ const { makeCall } = globalStore()
 const tabIndex = defineModel()
 const showWhatsappTemplates = defineModel('showWhatsappTemplates')
 const showFilesUploader = defineModel('showFilesUploader')
+
+const emit = defineEmits(['update:smsBox'])
 
 const defaultActions = computed(() => {
   let actions = [
@@ -163,6 +174,11 @@ const defaultActions = computed(() => {
       label: __('New WhatsApp Message'),
       onClick: () => (tabIndex.value = getTabIndex('WhatsApp')),
       condition: () => whatsappEnabled.value,
+    },
+    {
+      icon: h(PhoneIcon, { class: 'h-4 w-4' }),
+      label: __('New SMS'),
+      onClick: () => emit('update:smsBox', { show: true }),
     },
   ]
   return actions.filter((action) =>
