@@ -38,29 +38,25 @@
         <div
           :class="[
             'flex items-start gap-2 rounded-lg p-2',
-            message.type === 'Outgoing' ? 'bg-blue-50' : 'bg-gray-50',
+            message.direction === 'Outgoing' ? 'bg-blue-50' : 'bg-gray-50',
           ]"
         >
           <div class="flex w-full flex-col gap-1">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
                 <div class="text-sm font-medium text-gray-700">
-                  {{ message.type === 'Outgoing' ? 'You' : message.sender }}
+                  {{ message.direction === 'Outgoing' ? 'You' : message.from_number }}
                 </div>
                 <div class="text-xs text-gray-500">
-                  {{ formatDate(message.creation) }}
+                  {{ timeAgo(message.creation) }}
                 </div>
               </div>
-              <Dropdown :options="getMessageOptions(message)">
-                <template #default>
-                  <Button variant="ghost" class="h-6 w-6 p-0">
-                    <FeatherIcon name="more-vertical" class="h-4 w-4" />
-                  </Button>
-                </template>
-              </Dropdown>
+              <div class="text-xs text-gray-500">
+                {{ message.status }}
+              </div>
             </div>
             <div class="text-sm text-gray-900">
-              {{ message.content }}
+              {{ message.message }}
             </div>
             <div v-if="message.reactions?.length" class="flex gap-1">
               <div
@@ -75,19 +71,22 @@
           </div>
         </div>
       </div>
+      <div v-if="messages.length === 0" class="text-center text-gray-500 py-4">
+        No messages found
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, toRaw, isProxy, onMounted } from 'vue'
 import { formatDate, timeAgo } from '@/utils'
 import { Tooltip, createResource, FeatherIcon, Dropdown, Button, TextEditor } from 'frappe-ui'
 
 const props = defineProps({
   contact: {
     type: Object,
-    required: true,
+    default: () => null,
   },
   messages: {
     type: Array,
@@ -98,15 +97,35 @@ const props = defineProps({
 const showNewMessage = ref(false)
 const newMessage = ref('')
 
-const messagesResource = createResource({
-  url: 'crm.api.sms.get_sms_messages',
-  params: {
-    contact: props.contact.name,
-  },
-  auto: true,
-})
+const messages = computed(() => {
+  console.log('SMSArea - Raw messages prop:', props.messages);
+  if (!props.messages) {
+    console.log('SMSArea - No messages prop');
+    return [];
+  }
+  // Convert to plain array to avoid reactivity issues
+  const plainMessages = Array.isArray(props.messages) ? props.messages : [];
+  const formattedMessages = plainMessages.map(msg => {
+    // Convert to plain object
+    const plainMsg = JSON.parse(JSON.stringify(msg));
+    return {
+      ...plainMsg,
+      message: formatSMSMessage(plainMsg.message)
+    };
+  });
+  console.log('SMSArea - Formatted messages:', formattedMessages);
+  return formattedMessages;
+});
 
-const messages = computed(() => messagesResource.data || [])
+// Add watcher to track message changes
+watch(() => props.messages, (newMessages) => {
+  console.log('SMSArea - Messages prop changed:', newMessages);
+}, { deep: true });
+
+// Add watcher to track contact changes
+watch(() => props.contact, (newContact) => {
+  console.log('SMSArea - Contact prop changed:', newContact);
+}, { deep: true });
 
 function formatSMSMessage(message) {
   // if message contains _text_, make it italic
@@ -143,22 +162,32 @@ function scrollToMessage(name) {
 }
 
 const sendMessageResource = createResource({
-  url: 'crm.api.sms.send_sms',
+  url: 'frappe_sms.api.sms.send_sms',
   makeParams() {
-    return {
-      contact: props.contact.name,
+    const params = {
+      reference_doctype: props.contact.doctype,
+      reference_name: props.contact.name,
       message: newMessage.value,
+      recipient: props.contact.mobile_no
     }
+    console.log('SMSArea - Sending SMS with params:', params)
+    return params
   },
-  onSuccess() {
+  onSuccess(data) {
+    console.log('Message sent successfully:', data)
     newMessage.value = ''
     showNewMessage.value = false
-    messagesResource.reload()
+    // Emit an event to reload messages
+    emit('reload')
   },
+  onError(error) {
+    console.error('Error sending message:', error)
+  }
 })
 
 function sendMessage() {
   if (!newMessage.value.trim()) return
+  console.log('Sending message:', newMessage.value)
   sendMessageResource.submit()
 }
 
@@ -182,5 +211,5 @@ const getMessageOptions = (message) => {
   ]
 }
 
-const emit = defineEmits(['reply', 'react', 'delete'])
+const emit = defineEmits(['reply', 'react', 'delete', 'reload'])
 </script> 

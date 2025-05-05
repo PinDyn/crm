@@ -25,12 +25,12 @@
     <div
       v-else-if="
         activities?.length ||
-        (whatsappMessages.data?.length && title == 'WhatsApp') ||
-        (smsMessages.data?.length && title == 'SMS')
+        title == 'WhatsApp' ||
+        title == 'SMS'
       "
       class="activities"
     >
-      <div v-if="title == 'WhatsApp' && whatsappMessages.data?.length">
+      <div v-if="title == 'WhatsApp'">
         <WhatsAppArea
           class="px-3 sm:px-10"
           v-model="whatsappMessages"
@@ -44,7 +44,12 @@
           v-model="smsMessages"
           v-model:reply="replyMessage"
           :messages="smsMessages.data || []"
-          :contact="doc.data"
+          :contact="doc?.value?.data ? {
+            doctype: doc.value.data.doctype,
+            name: doc.value.data.name,
+            mobile_no: doc.value.data.mobile_no
+          } : null"
+          @reload="smsMessages.reload()"
         />
       </div>
       <div
@@ -464,17 +469,13 @@
       }
     "
   />
-  <Dialog v-model="smsBox.show" :options="{ size: 'md' }">
+  <Dialog v-model="smsBox.show" :show="smsBox.show" :options="{ size: 'md' }">
     <template #body-content>
       <SMSBox
         v-model:show="smsBox.show"
         v-model:message="message"
         v-model:messages="smsMessages"
-        :contact="{
-          doctype: doctype,
-          name: doc.data?.name,
-          mobile_no: doc.data?.mobile_no || doc.data?.phone || ''
-        }"
+        :contact="smsBox.contact"
       />
     </template>
   </Dialog>
@@ -551,23 +552,29 @@ const props = defineProps({
 })
 
 const route = useRoute()
-
 const doc = defineModel()
 const reload = defineModel('reload')
 const tabIndex = defineModel('tabIndex')
-
 const reload_email = ref(false)
 const modalRef = ref(null)
 const showFilesUploader = ref(false)
-
 const title = computed(() => props.tabs?.[tabIndex.value]?.name || 'Activity')
 
-const changeTabTo = (tabName) => {
-  const tabNames = props.tabs?.map((tab) => tab.name?.toLowerCase())
-  const index = tabNames?.indexOf(tabName)
-  if (index == -1) return
-  tabIndex.value = index
-}
+// Initialize resources
+const smsMessages = createResource({
+  url: 'crm.api.sms.get_messages',
+  cache: ['sms_messages', doc.value?.data?.name],
+  params: {
+    reference_doctype: props.doctype,
+    reference_name: doc.value.data.name
+  },
+  auto: true,
+  transform: (data) => sortByCreation(data),
+  onSuccess: () => nextTick(() => scroll()),
+  onError: (error) => {
+    console.error('Error loading SMS messages:', error);
+  }
+});
 
 const all_activities = createResource({
   url: 'crm.api.activities.get_activities',
@@ -580,7 +587,10 @@ const all_activities = createResource({
 })
 
 const showWhatsappTemplates = ref(false)
-const smsBox = ref({ show: false })
+const smsBox = ref({
+  show: false,
+  contact: null
+})
 const message = ref('')
 
 const whatsappMessages = createResource({
@@ -595,17 +605,36 @@ const whatsappMessages = createResource({
   onSuccess: () => nextTick(() => scroll()),
 })
 
-const smsMessages = createResource({
-  url: 'crm.api.sms.get_sms_messages',
-  cache: ['sms_messages', doc.value.data.name],
-  params: {
-    reference_doctype: props.doctype,
-    reference_name: doc.value.data.name,
-  },
-  auto: true,
-  transform: (data) => sortByCreation(data),
-  onSuccess: () => nextTick(() => scroll()),
-})
+// Add watcher for doc changes
+watch(doc, (newDoc) => {
+  if (newDoc?.value?.data) {
+    smsMessages.reload();
+  }
+}, { immediate: true });
+
+// Add watcher for title changes
+watch(() => title.value, (newTitle) => {
+  if (newTitle === 'SMS') {
+    smsMessages.reload();
+  }
+});
+
+// Add watcher for smsMessages data
+watch(() => smsMessages.data, (newData) => {
+  console.log('Activities - SMS Messages data changed:', newData);
+}, { deep: true });
+
+// Add watcher for doc data
+watch(() => doc.value?.data, (newData) => {
+  console.log('Activities - Doc data changed:', newData);
+}, { deep: true });
+
+const changeTabTo = (tabName) => {
+  const tabNames = props.tabs?.map((tab) => tab.name?.toLowerCase())
+  const index = tabNames?.indexOf(tabName)
+  if (index == -1) return
+  tabIndex.value = index
+}
 
 onBeforeUnmount(() => {
   $socket.off('whatsapp_message')
@@ -623,11 +652,13 @@ onMounted(() => {
   })
 
   $socket.on('sms_message', (data) => {
+    console.log('New SMS message received:', data);
     if (
       data.reference_doctype === props.doctype &&
-      data.reference_name === doc.value.data.name
+      data.reference_name === doc.value?.data?.name
     ) {
-      smsMessages.reload()
+      console.log('Reloading messages for current doc');
+      smsMessages.reload();
     }
   })
 

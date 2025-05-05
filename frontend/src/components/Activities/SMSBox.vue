@@ -40,6 +40,7 @@
 import { ref, onMounted, watch, nextTick } from 'vue'
 import { createResource, Button, Input } from 'frappe-ui'
 
+// Props
 const props = defineProps({
   contact: {
     type: Object,
@@ -48,51 +49,72 @@ const props = defineProps({
   },
 })
 
+// Define model bindings from parent
+const doc = defineModel()
+const reply = defineModel('reply')
+const sms = defineModel('sms')
+
+// Emit events (if needed in other logic)
 const emit = defineEmits(['update:show', 'update:message', 'update:messages'])
 
+// Local state
 const show = ref(false)
 const message = ref('')
-const messages = ref(null)
 const messageInput = ref(null)
 const closeButton = ref(null)
 const sendButton = ref(null)
 
+// Watch for show to auto-focus input
 watch(show, (newValue) => {
   if (newValue) {
-    // Focus the text editor when the dialog opens
     nextTick(() => {
       messageInput.value?.focus()
     })
   }
 })
 
+// Resource for sending the SMS
 const sendMessageResource = createResource({
   url: 'frappe_sms.api.sms.send_sms',
   makeParams() {
-    if (!props.contact?.doctype || !props.contact?.name) {
-      console.error('Contact prop is missing required properties')
-      return null
+    const { doctype } = props.contact || {};
+    let missingProps = [];
+
+    // Check for missing properties and log the names
+    if (!doctype) missingProps.push('doctype');
+    if (!doc.value.data.name) missingProps.push('name');
+    if (!doc.value.data.mobile_no) missingProps.push('mobile_no');
+
+    if (missingProps.length) {
+      console.error(`Missing required properties: ${missingProps.join(', ')}`);
+      return null;
     }
-    return {
-      reference_doctype: props.contact.doctype,
-      reference_name: props.contact.name,
+
+    // Log only essential information
+    const params = {
+      reference_doctype: doctype,
+      reference_name: doc.value.data.name,
       message: message.value,
-      recipient: props.contact.mobile_no,
-    }
+      recipient: doc.value.data.mobile_no
+    };
+    console.log('Sending SMS to:', doc.value.data.mobile_no);
+
+    return params;
   },
   onSuccess() {
     message.value = ''
     show.value = false
-    messages.value?.reload()
+    sms?.reload?.()
   },
 })
 
+// Send message trigger
 function sendMessage() {
   if (!message.value) return
   sendMessageResource.submit()
 }
 
-// Expose focusable elements for the dialog
+// Expose focusable elements for dialog support
 defineExpose({
   focusableElements: () => [
     messageInput.value,
@@ -100,4 +122,5 @@ defineExpose({
     sendButton.value,
   ].filter(Boolean),
 })
-</script> 
+</script>
+ 

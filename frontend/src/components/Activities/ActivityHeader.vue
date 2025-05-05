@@ -74,7 +74,17 @@
       </Button>
     </div>
     <div class="flex gap-2 shrink-0" v-else-if="title == 'SMS'">
-      <Button variant="solid" @click="emit('update:smsBox', { show: true })">
+      <Button variant="solid" @click="() => {
+        console.log('Full doc object:', props.doc);
+        emit('update:smsBox', { 
+          show: true,
+          contact: {
+            doctype: props.doc.doctype,
+            name: props.doc.name,
+            mobile_no: props.doc.mobile_no
+          }
+        });
+      }">
         <template #prefix>
           <FeatherIcon name="plus" class="h-4 w-4" />
         </template>
@@ -178,7 +188,17 @@ const defaultActions = computed(() => {
     {
       icon: h(PhoneIcon, { class: 'h-4 w-4' }),
       label: __('New SMS'),
-      onClick: () => emit('update:smsBox', { show: true }),
+      onClick: () => {
+        console.log('Full doc object:', props.doc);
+        emit('update:smsBox', { 
+          show: true,
+          contact: {
+            doctype: props.doc.doctype,
+            name: props.doc.name,
+            mobile_no: props.doc.mobile_no
+          }
+        });
+      },
     },
   ]
   return actions.filter((action) =>
