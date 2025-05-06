@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col gap-4">
+  <div class="flex flex-col gap-4 h-full">
     <div class="flex items-center justify-between">
       <div class="text-lg font-medium">SMS Messages</div>
       <Button
@@ -29,57 +29,80 @@
       </div>
     </div>
 
-    <div class="flex flex-col gap-2">
-      <div
-        v-for="message in messages"
-        :key="message.name"
-        class="flex flex-col gap-2"
-      >
+    <div class="flex-1 overflow-y-auto">
+      <div class="flex flex-col gap-4 p-4">
         <div
-          :class="[
-            'flex items-start gap-2 rounded-lg p-2',
-            message.direction === 'Outgoing' ? 'bg-blue-50' : 'bg-gray-50',
-          ]"
+          v-for="message in messages"
+          :key="message.name"
+          :id="message.name"
+          class="flex flex-col gap-1"
         >
-          <div class="flex w-full flex-col gap-1">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <div class="text-sm font-medium text-gray-700">
-                  {{ message.direction === 'Outgoing' ? 'You' : message.from_number }}
-                </div>
-                <div class="text-xs text-gray-500">
-                  {{ timeAgo(message.creation) }}
-                </div>
-              </div>
-              <div class="text-xs text-gray-500">
-                {{ message.status }}
-              </div>
-            </div>
-            <div class="text-sm text-gray-900">
-              {{ message.message }}
-            </div>
-            <div v-if="message.reactions?.length" class="flex gap-1">
-              <div
-                v-for="reaction in message.reactions"
-                :key="reaction.name"
-                class="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs"
+          <!-- Message Header -->
+          <div 
+            class="text-xs text-gray-500 px-2"
+            :class="message.direction === 'Outgoing' ? 'text-right' : 'text-left'"
+          >
+            {{ message.direction === 'Outgoing' ? 'You' : message.from_number }} • {{ timeAgo(message.creation) }}
+          </div>
+          
+          <!-- Message Bubble -->
+          <div
+            :class="[
+              'flex items-start gap-2 rounded-lg p-3 max-w-[80%] shadow-sm',
+              message.direction === 'Outgoing' 
+                ? 'ml-auto bg-blue-500 text-white' 
+                : 'mr-auto bg-gray-100 text-gray-900',
+            ]"
+          >
+            <div class="flex w-full flex-col gap-1">
+              <!-- Message Content -->
+              <div 
+                class="text-sm"
+                :class="message.direction === 'Outgoing' ? 'text-white' : 'text-gray-900'"
+                v-html="message.message"
+              />
+              
+              <!-- Message Status -->
+              <div 
+                class="flex items-center gap-1 text-xs"
+                :class="message.direction === 'Outgoing' ? 'text-blue-100' : 'text-gray-500'"
               >
-                <span>{{ reaction.emoji }}</span>
-                <span class="text-gray-600">{{ reaction.count }}</span>
+                <span v-if="message.direction === 'Outgoing'">
+                  {{ message.status }}
+                </span>
               </div>
             </div>
           </div>
+
+          <!-- Reactions -->
+          <div 
+            v-if="message.reactions?.length" 
+            class="flex gap-1 px-2"
+            :class="message.direction === 'Outgoing' ? 'justify-end' : 'justify-start'"
+          >
+            <div
+              v-for="reaction in message.reactions"
+              :key="reaction.name"
+              class="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs"
+            >
+              <span>{{ reaction.emoji }}</span>
+              <span class="text-gray-600">{{ reaction.count }}</span>
+            </div>
+          </div>
         </div>
-      </div>
-      <div v-if="messages.length === 0" class="text-center text-gray-500 py-4">
-        No messages found
+
+        <!-- Empty State -->
+        <div v-if="messages.length === 0" class="flex flex-col items-center justify-center h-full text-gray-500 py-8">
+          <div class="text-lg mb-2">No messages yet</div>
+          <div class="text-sm">Start a conversation by sending a message</div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, toRaw, isProxy, onMounted } from 'vue'
+import { ref, computed, watch, toRaw, isProxy, onMounted, onUnmounted, nextTick } from 'vue'
 import { formatDate, timeAgo } from '@/utils'
 import { Tooltip, createResource, FeatherIcon, Dropdown, Button, TextEditor } from 'frappe-ui'
 
@@ -96,6 +119,24 @@ const props = defineProps({
 
 const showNewMessage = ref(false)
 const newMessage = ref('')
+const emit = defineEmits(['reply', 'react', 'delete', 'reload'])
+
+// Add polling for new messages
+let pollInterval = null
+
+onMounted(() => {
+  // Start polling every 5 seconds
+  pollInterval = setInterval(() => {
+    emit('reload')
+  }, 5000)
+})
+
+onUnmounted(() => {
+  // Clean up polling when component is destroyed
+  if (pollInterval) {
+    clearInterval(pollInterval)
+  }
+})
 
 const messages = computed(() => {
   console.log('SMSArea - Raw messages prop:', props.messages);
@@ -126,6 +167,16 @@ watch(() => props.messages, (newMessages) => {
 watch(() => props.contact, (newContact) => {
   console.log('SMSArea - Contact prop changed:', newContact);
 }, { deep: true });
+
+// Add auto-scroll to bottom when new messages arrive
+watch(() => props.messages, () => {
+  nextTick(() => {
+    const container = document.querySelector('.overflow-y-auto')
+    if (container) {
+      container.scrollTop = container.scrollHeight
+    }
+  })
+}, { deep: true })
 
 function formatSMSMessage(message) {
   // if message contains _text_, make it italic
@@ -187,8 +238,12 @@ const sendMessageResource = createResource({
 
 function sendMessage() {
   if (!newMessage.value.trim()) return
-  console.log('Sending message:', newMessage.value)
   sendMessageResource.submit()
+  // Emit reload event after sending message
+  emit('reload')
+  // Clear the message input
+  newMessage.value = ''
+  showNewMessage.value = false
 }
 
 const getMessageOptions = (message) => {
@@ -210,6 +265,28 @@ const getMessageOptions = (message) => {
     },
   ]
 }
+</script>
 
-const emit = defineEmits(['reply', 'react', 'delete', 'reload'])
-</script> 
+<style scoped>
+.overflow-y-auto {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+}
+
+.overflow-y-auto::-webkit-scrollbar {
+  width: 6px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.5);
+  border-radius: 3px;
+}
+
+.max-w-[80%] {
+  max-width: 80%;
+}
+</style> 

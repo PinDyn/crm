@@ -49,7 +49,10 @@
             name: doc.value.data.name,
             mobile_no: doc.value.data.mobile_no
           } : null"
-          @reload="smsMessages.reload()"
+          @reload="() => {
+            console.log('Reloading SMS messages...');
+            smsMessages.reload();
+          }"
         />
       </div>
       <div
