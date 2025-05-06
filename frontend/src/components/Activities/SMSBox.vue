@@ -7,25 +7,33 @@
         icon="x"
         variant="ghost"
         class="h-6 w-6 p-0"
-        @click="show = false"
+        @click="closeBox"
       />
     </div>
 
     <div class="flex flex-col gap-2">
       <div class="flex items-center gap-2">
         <div class="flex-1">
-          <Input
+          <textarea
+            ref="messageInput"
             v-model="message"
-            type="textarea"
-            :placeholder="__('Type your message here...')"
-            @keydown.enter.prevent="sendMessage"
+            class="w-full min-h-[120px] bg-white rounded-lg border border-gray-200 p-3 resize-none"
+            placeholder="Type your message here..."
+            @keydown.enter.exact.prevent="sendMessage"
+            @keydown.enter.shift.exact="message += '\n'"
           />
         </div>
       </div>
     </div>
     <div class="flex justify-end gap-2">
-      <Button @click="show = false">{{ __('Cancel') }}</Button>
+      <Button 
+        variant="ghost" 
+        @click="closeBox"
+      >
+        {{ __('Cancel') }}
+      </Button>
       <Button
+        ref="sendButton"
         variant="solid"
         :loading="sendMessageResource.loading"
         @click="sendMessage"
@@ -38,7 +46,7 @@
 
 <script setup>
 import { ref, onMounted, watch, nextTick } from 'vue'
-import { createResource, Button, Input } from 'frappe-ui'
+import { createResource, Button } from 'frappe-ui'
 
 // Props
 const props = defineProps({
@@ -53,12 +61,12 @@ const props = defineProps({
 const doc = defineModel()
 const reply = defineModel('reply')
 const sms = defineModel('sms')
+const show = defineModel('show')
 
-// Emit events (if needed in other logic)
-const emit = defineEmits(['update:show', 'update:message', 'update:messages'])
+// Emit events
+const emit = defineEmits(['update:message', 'update:messages'])
 
 // Local state
-const show = ref(false)
 const message = ref('')
 const messageInput = ref(null)
 const closeButton = ref(null)
@@ -73,45 +81,63 @@ watch(show, (newValue) => {
   }
 })
 
+// Watch message changes
+watch(message, (newValue) => {
+  console.log('Message changed:', newValue)
+})
+
 // Resource for sending the SMS
 const sendMessageResource = createResource({
   url: 'frappe_sms.api.sms.send_sms',
   makeParams() {
-    const { doctype } = props.contact || {};
-    let missingProps = [];
-
-    // Check for missing properties and log the names
-    if (!doctype) missingProps.push('doctype');
-    if (!doc.value.data.name) missingProps.push('name');
-    if (!doc.value.data.mobile_no) missingProps.push('mobile_no');
-
-    if (missingProps.length) {
-      console.error(`Missing required properties: ${missingProps.join(', ')}`);
-      return null;
+    console.log('Current message value:', message.value)
+    if (!doc.value?.data?.name) {
+      throw new Error('Document name is required')
     }
-
-    // Log only essential information
+    if (!doc.value?.data?.mobile_no) {
+      throw new Error('Mobile number is required')
+    }
+    if (!message.value) {
+      throw new Error('Message is required')
+    }
+    
     const params = {
-      reference_doctype: doctype,
+      reference_doctype: props.contact.doctype,
       reference_name: doc.value.data.name,
       message: message.value,
       recipient: doc.value.data.mobile_no
-    };
-    console.log('Sending SMS to:', doc.value.data.mobile_no);
-
-    return params;
+    }
+    console.log('Sending SMS with params:', params)
+    return params
   },
-  onSuccess() {
+  onSuccess(data) {
+    console.log('SMS sent successfully:', data)
     message.value = ''
-    show.value = false
+    closeBox()
     sms?.reload?.()
   },
+  onError(error) {
+    console.error('Error sending SMS:', error)
+  }
 })
 
 // Send message trigger
 function sendMessage() {
-  if (!message.value) return
-  sendMessageResource.submit()
+  try {
+    console.log('Send message triggered with value:', message.value)
+    if (!message.value) {
+      return
+    }
+    sendMessageResource.submit()
+  } catch (error) {
+    console.error('Error in sendMessage:', error)
+  }
+}
+
+// Close box function
+function closeBox() {
+  show.value = false
+  message.value = ''
 }
 
 // Expose focusable elements for dialog support
@@ -123,4 +149,10 @@ defineExpose({
   ].filter(Boolean),
 })
 </script>
+
+<style scoped>
+.min-h-[120px] {
+  min-height: 120px;
+}
+</style>
  

@@ -49,10 +49,7 @@
             name: doc.value.data.name,
             mobile_no: doc.value.data.mobile_no
           } : null"
-          @reload="() => {
-            console.log('Reloading SMS messages...');
-            smsMessages.reload();
-          }"
+          @reload="smsMessages.reload()"
         />
       </div>
       <div
@@ -623,13 +620,13 @@ watch(() => title.value, (newTitle) => {
 });
 
 // Add watcher for smsMessages data
-watch(() => smsMessages.data, (newData) => {
-  console.log('Activities - SMS Messages data changed:', newData);
+watch(() => smsMessages.data, () => {
+  // No logging needed
 }, { deep: true });
 
 // Add watcher for doc data
-watch(() => doc.value?.data, (newData) => {
-  console.log('Activities - Doc data changed:', newData);
+watch(() => doc.value?.data, () => {
+  // No logging needed
 }, { deep: true });
 
 const changeTabTo = (tabName) => {
@@ -655,12 +652,10 @@ onMounted(() => {
   })
 
   $socket.on('sms_message', (data) => {
-    console.log('New SMS message received:', data);
     if (
       data.reference_doctype === props.doctype &&
       data.reference_name === doc.value?.data?.name
     ) {
-      console.log('Reloading messages for current doc');
       smsMessages.reload();
     }
   })

@@ -1,33 +1,6 @@
 <template>
   <div class="flex flex-col gap-4 h-full">
-    <div class="flex items-center justify-between">
-      <div class="text-lg font-medium">SMS Messages</div>
-      <Button
-        v-if="!showNewMessage"
-        icon="plus"
-        @click="showNewMessage = true"
-      >
-        New Message
-      </Button>
-    </div>
-
-    <div v-if="showNewMessage" class="flex flex-col gap-2 p-4 bg-gray-50 rounded-lg">
-      <div class="flex items-end gap-2">
-        <TextEditor
-          v-model="newMessage"
-          class="flex-1 min-h-[100px] bg-white rounded-lg border border-gray-200 p-2"
-          placeholder="Type your message..."
-          @keydown.enter.exact.prevent="sendMessage"
-          @keydown.enter.shift.exact="newMessage += '\n'"
-        />
-        <Button
-          icon="send"
-          class="!p-2"
-          :disabled="!newMessage.trim()"
-          @click="sendMessage"
-        />
-      </div>
-    </div>
+    <div class="text-lg font-medium">SMS Messages</div>
 
     <div class="flex-1 overflow-y-auto">
       <div class="flex flex-col gap-4 p-4">
@@ -73,22 +46,6 @@
               </div>
             </div>
           </div>
-
-          <!-- Reactions -->
-          <div 
-            v-if="message.reactions?.length" 
-            class="flex gap-1 px-2"
-            :class="message.direction === 'Outgoing' ? 'justify-end' : 'justify-start'"
-          >
-            <div
-              v-for="reaction in message.reactions"
-              :key="reaction.name"
-              class="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs"
-            >
-              <span>{{ reaction.emoji }}</span>
-              <span class="text-gray-600">{{ reaction.count }}</span>
-            </div>
-          </div>
         </div>
 
         <!-- Empty State -->
@@ -117,7 +74,6 @@ const props = defineProps({
   },
 })
 
-const showNewMessage = ref(false)
 const newMessage = ref('')
 const emit = defineEmits(['reply', 'react', 'delete', 'reload'])
 
@@ -139,34 +95,12 @@ onUnmounted(() => {
 })
 
 const messages = computed(() => {
-  console.log('SMSArea - Raw messages prop:', props.messages);
-  if (!props.messages) {
-    console.log('SMSArea - No messages prop');
-    return [];
-  }
-  // Convert to plain array to avoid reactivity issues
-  const plainMessages = Array.isArray(props.messages) ? props.messages : [];
-  const formattedMessages = plainMessages.map(msg => {
-    // Convert to plain object
-    const plainMsg = JSON.parse(JSON.stringify(msg));
-    return {
-      ...plainMsg,
-      message: formatSMSMessage(plainMsg.message)
-    };
-  });
-  console.log('SMSArea - Formatted messages:', formattedMessages);
-  return formattedMessages;
+  if (!props.messages) return [];
+  return props.messages.map(msg => ({
+    ...msg,
+    message: formatSMSMessage(msg.message)
+  }));
 });
-
-// Add watcher to track message changes
-watch(() => props.messages, (newMessages) => {
-  console.log('SMSArea - Messages prop changed:', newMessages);
-}, { deep: true });
-
-// Add watcher to track contact changes
-watch(() => props.contact, (newContact) => {
-  console.log('SMSArea - Contact prop changed:', newContact);
-}, { deep: true });
 
 // Add auto-scroll to bottom when new messages arrive
 watch(() => props.messages, () => {
@@ -227,7 +161,6 @@ const sendMessageResource = createResource({
   onSuccess(data) {
     console.log('Message sent successfully:', data)
     newMessage.value = ''
-    showNewMessage.value = false
     // Emit an event to reload messages
     emit('reload')
   },
@@ -243,7 +176,6 @@ function sendMessage() {
   emit('reload')
   // Clear the message input
   newMessage.value = ''
-  showNewMessage.value = false
 }
 
 const getMessageOptions = (message) => {
