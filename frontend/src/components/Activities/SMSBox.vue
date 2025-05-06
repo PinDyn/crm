@@ -88,7 +88,7 @@ watch(message, (newValue) => {
 
 // Resource for sending the SMS
 const sendMessageResource = createResource({
-  url: 'frappe_sms.api.sms.send_sms',
+  url: 'frappe_sms.frappe_sms.api.sms.send_sms',
   makeParams() {
     console.log('Current message value:', message.value)
     if (!doc.value?.data?.name) {
