@@ -103,6 +103,8 @@ const props = defineProps({
 
 const audio = ref(null)
 const isPaused = ref(true)
+const loading = ref(false)
+const error = ref(null)
 
 const duration = ref(0)
 const currentTime = ref(0)
@@ -111,7 +113,6 @@ const currentVolumn = ref(1)
 const volumnProgress = ref(100)
 
 const audioUrl = ref('')
-const error = ref('')
 
 function setupDuration() {
   duration.value = audio.value.duration
