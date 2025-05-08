@@ -205,16 +205,16 @@ const loadRecording = async () => {
     const recordingSid = props.src.split('/').pop().split('.')[0];
     
     // Get authenticated URL from backend
-    const response = await frappe.call({
+    const response = await call({
       method: 'crm.integrations.twilio.api.get_recording_url',
       args: {
         recording_sid: recordingSid
       }
     });
     
-    if (response.message && response.message.url) {
+    if (response && response.url) {
       // Set the audio source
-      audio.value.src = response.message.url;
+      audio.value.src = response.url;
       
       // Add event listeners
       audio.value.addEventListener('error', handleError);
