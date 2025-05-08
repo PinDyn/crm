@@ -174,18 +174,28 @@ def get_recording_url(recording_sid):
 		frappe.throw(_("Twilio integration is not enabled"))
 	
 	try:
-		# Get the recording details
+		# Get the recording details using Twilio client
 		recording = twilio.twilio_client.recordings(recording_sid).fetch()
 		
-		# Get the auth token and account SID from settings
-		auth_token = frappe.get_doc("CRM Twilio Settings").get_password("auth_token")
+		# Get the URI for the recording
+		recording_uri = recording.uri.replace('.json', '.mp3')
+		
+		# Construct the full URL using the account SID
 		account_sid = frappe.get_doc("CRM Twilio Settings").account_sid
+		base_url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}"
+		recording_url = f"{base_url}{recording_uri}"
 		
-		# Construct the authenticated URL
-		base_url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Recordings/{recording_sid}"
-		authenticated_url = f"{base_url}.mp3?auth_token={auth_token}"
+		# Get the auth token
+		auth_token = frappe.get_doc("CRM Twilio Settings").get_password("auth_token")
 		
-		return {"url": authenticated_url}
+		# Create a signed URL that includes the auth token
+		from urllib.parse import urlencode
+		params = {
+			'auth_token': auth_token
+		}
+		signed_url = f"{recording_url}?{urlencode(params)}"
+		
+		return {"url": signed_url}
 	except Exception as e:
 		frappe.log_error(title="Error fetching Twilio recording")
 		frappe.throw(_("Could not fetch recording"))

@@ -193,22 +193,51 @@ const options = computed(() => {
   return showPlaybackSpeed.value ? playbackSpeedOptions : _options
 })
 
-async function loadRecording() {
+const loadRecording = async () => {
+  if (!props.src) return;
+  
   try {
-    // Extract recording SID from the URL
-    const recordingSid = props.src.split('/').pop()
+    loading.value = true;
+    error.value = null;
     
-    // Get authenticated URL
-    const response = await call('crm.integrations.twilio.api.get_recording_url', {
-      recording_sid: recordingSid
-    })
+    // Extract recording SID from URL
+    const recordingSid = props.src.split('/').pop().split('.')[0];
     
-    audioUrl.value = response.url
+    // Get authenticated URL from backend
+    const response = await frappe.call({
+      method: 'crm.integrations.twilio.api.get_recording_url',
+      args: {
+        recording_sid: recordingSid
+      }
+    });
+    
+    if (response.message && response.message.url) {
+      // Set the audio source
+      audio.value.src = response.message.url;
+      
+      // Add event listeners
+      audio.value.addEventListener('error', handleError);
+      audio.value.addEventListener('loadeddata', () => {
+        loading.value = false;
+      });
+      
+      // Load the audio
+      await audio.value.load();
+    } else {
+      throw new Error('Invalid recording URL response');
+    }
   } catch (err) {
-    error.value = __('Failed to load recording')
-    console.error('Error loading recording:', err)
+    console.error('Error loading recording:', err);
+    error.value = 'Failed to load recording. Please try again.';
+    loading.value = false;
   }
-}
+};
+
+const handleError = (e) => {
+  console.error('Audio playback error:', e);
+  error.value = 'Failed to play recording. Please try again.';
+  loading.value = false;
+};
 
 // Watch for changes in the src prop
 watch(() => props.src, () => {
@@ -219,11 +248,6 @@ watch(() => props.src, () => {
 onMounted(() => {
   loadRecording()
 })
-
-function handleError(e) {
-  error.value = __('Failed to play recording')
-  console.error('Audio playback error:', e)
-}
 </script>
 
 <style scoped>
