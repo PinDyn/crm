@@ -112,10 +112,7 @@ const progress = computed(() => (currentTime.value / duration.value) * 100)
 const currentVolumn = ref(1)
 const volumnProgress = ref(100)
 
-const audioUrl = computed(() => {
-  if (!props.src) return '';
-  return props.src;
-})
+const audioUrl = ref('')
 
 function setupDuration() {
   duration.value = audio.value.duration
@@ -223,8 +220,8 @@ watch(() => props.src, async (newSrc) => {
     });
     
     if (response && response.url) {
-      // Set the audio source
-      audio.value.src = response.url;
+      // Set the audio source to the authenticated URL
+      audioUrl.value = response.url;
       
       // Add event listeners
       audio.value.addEventListener('error', handleError);
