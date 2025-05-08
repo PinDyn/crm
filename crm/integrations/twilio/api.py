@@ -164,3 +164,28 @@ def get_datetime_from_timestamp(timestamp):
 	system_timezone = frappe.utils.get_system_timezone()
 	converted_datetime = datetime_utc_tz.astimezone(ZoneInfo(system_timezone))
 	return frappe.utils.format_datetime(converted_datetime, "yyyy-MM-dd HH:mm:ss")
+
+
+@frappe.whitelist()
+def get_recording_url(recording_sid):
+	"""Get authenticated recording URL."""
+	twilio = Twilio.connect()
+	if not twilio:
+		frappe.throw(_("Twilio integration is not enabled"))
+	
+	try:
+		# Get the recording details
+		recording = twilio.twilio_client.recordings(recording_sid).fetch()
+		
+		# Get the auth token and account SID from settings
+		auth_token = frappe.get_doc("CRM Twilio Settings").get_password("auth_token")
+		account_sid = frappe.get_doc("CRM Twilio Settings").account_sid
+		
+		# Construct the authenticated URL
+		base_url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Recordings/{recording_sid}"
+		authenticated_url = f"{base_url}.mp3?auth_token={auth_token}"
+		
+		return {"url": authenticated_url}
+	except Exception as e:
+		frappe.log_error(title="Error fetching Twilio recording")
+		frappe.throw(_("Could not fetch recording"))

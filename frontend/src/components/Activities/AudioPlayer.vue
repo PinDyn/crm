@@ -72,11 +72,12 @@
 
     <audio
       ref="audio"
-      :src="src"
+      :src="audioUrl"
       crossorigin="anonymous"
       @loadedmetadata="setupDuration"
       @timeupdate="updateCurrentTime"
       @ended="isPaused = true"
+      @error="handleError"
     ></audio>
   </div>
 </template>
@@ -90,10 +91,14 @@ import MuteIcon from '@/components/Icons/MuteIcon.vue'
 import PlaybackSpeedIcon from '@/components/Icons/PlaybackSpeedIcon.vue'
 import PlaybackSpeedOption from '@/components/Activities/PlaybackSpeedOption.vue'
 import Dropdown from '@/components/frappe-ui/Dropdown.vue'
-import { computed, h, ref } from 'vue'
+import { computed, h, ref, onMounted, watch } from 'vue'
+import { call } from 'frappe-ui'
 
 const props = defineProps({
-  src: String,
+  src: {
+    type: String,
+    required: true
+  }
 })
 
 const audio = ref(null)
@@ -104,6 +109,9 @@ const currentTime = ref(0)
 const progress = computed(() => (currentTime.value / duration.value) * 100)
 const currentVolumn = ref(1)
 const volumnProgress = ref(100)
+
+const audioUrl = ref('')
+const error = ref('')
 
 function setupDuration() {
   duration.value = audio.value.duration
@@ -184,6 +192,38 @@ const options = computed(() => {
 
   return showPlaybackSpeed.value ? playbackSpeedOptions : _options
 })
+
+async function loadRecording() {
+  try {
+    // Extract recording SID from the URL
+    const recordingSid = props.src.split('/').pop()
+    
+    // Get authenticated URL
+    const response = await call('crm.integrations.twilio.api.get_recording_url', {
+      recording_sid: recordingSid
+    })
+    
+    audioUrl.value = response.url
+  } catch (err) {
+    error.value = __('Failed to load recording')
+    console.error('Error loading recording:', err)
+  }
+}
+
+// Watch for changes in the src prop
+watch(() => props.src, () => {
+  loadRecording()
+})
+
+// Load recording when component mounts
+onMounted(() => {
+  loadRecording()
+})
+
+function handleError(e) {
+  error.value = __('Failed to play recording')
+  console.error('Audio playback error:', e)
+}
 </script>
 
 <style scoped>
