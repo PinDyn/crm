@@ -112,7 +112,10 @@ const progress = computed(() => (currentTime.value / duration.value) * 100)
 const currentVolumn = ref(1)
 const volumnProgress = ref(100)
 
-const audioUrl = ref('')
+const audioUrl = computed(() => {
+  if (!props.src) return '';
+  return props.src;
+})
 
 function setupDuration() {
   duration.value = audio.value.duration
@@ -194,15 +197,22 @@ const options = computed(() => {
   return showPlaybackSpeed.value ? playbackSpeedOptions : _options
 })
 
-const loadRecording = async () => {
-  if (!props.src) return;
+const handleError = (e) => {
+  console.error('Audio playback error:', e);
+  error.value = 'Failed to play recording. Please try again.';
+  loading.value = false;
+};
+
+// Watch for changes in the src prop
+watch(() => props.src, async (newSrc) => {
+  if (!newSrc) return;
   
   try {
     loading.value = true;
     error.value = null;
     
     // Extract recording SID from URL
-    const recordingSid = props.src.split('/').pop().split('.')[0];
+    const recordingSid = newSrc.split('/').pop().split('.')[0];
     
     // Get authenticated URL from backend
     const response = await call({
@@ -232,22 +242,13 @@ const loadRecording = async () => {
     error.value = 'Failed to load recording. Please try again.';
     loading.value = false;
   }
-};
-
-const handleError = (e) => {
-  console.error('Audio playback error:', e);
-  error.value = 'Failed to play recording. Please try again.';
-  loading.value = false;
-};
-
-// Watch for changes in the src prop
-watch(() => props.src, () => {
-  loadRecording()
 })
 
 // Load recording when component mounts
 onMounted(() => {
-  loadRecording()
+  if (props.src) {
+    audio.value.addEventListener('error', handleError);
+  }
 })
 </script>
 
