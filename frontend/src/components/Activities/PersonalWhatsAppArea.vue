@@ -106,7 +106,7 @@
                 >
                   <FeatherIcon name="file" class="h-6 w-6 text-gray-500" />
                   <div class="flex-1 min-w-0">
-                    <div class="text-sm font-medium truncate">{{ message.message || 'Document' }}</div>
+                    <div v-if="message.message && message.message.trim()" class="text-sm font-medium truncate">{{ message.message }}</div>
                     <div class="text-xs text-gray-500">{{ getFileExtension(message.attach) }}</div>
                   </div>
                   <FeatherIcon name="download" class="h-4 w-4 text-gray-500" />
