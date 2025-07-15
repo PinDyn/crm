@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col gap-4 h-full">
-    <div ref="messagesContainer" class="flex-1 overflow-y-auto">
+    <div ref="messagesContainer" class="flex-1 overflow-y-auto min-h-0">
       <div class="flex flex-col gap-4 p-4">
         <div
           v-for="message in messages"
@@ -26,11 +26,58 @@
             ]"
           >
             <div class="flex w-full flex-col gap-1">
-              <!-- Message Content -->
+              <!-- Media Content -->
+              <div v-if="message.attach && message.content_type" class="mb-2">
+                <!-- Image -->
+                <img 
+                  v-if="message.content_type.startsWith('image/')" 
+                  :src="message.attach" 
+                  :alt="message.message || 'Image'"
+                  class="max-w-full rounded-lg cursor-pointer"
+                  @click="openMediaViewer(message.attach, message.content_type)"
+                />
+                <!-- Video -->
+                <video 
+                  v-else-if="message.content_type.startsWith('video/')" 
+                  :src="message.attach" 
+                  controls
+                  class="max-w-full rounded-lg"
+                  preload="metadata"
+                >
+                  <source :src="message.attach" :type="message.content_type">
+                  Your browser does not support the video tag.
+                </video>
+                <!-- Audio -->
+                <audio 
+                  v-else-if="message.content_type.startsWith('audio/')" 
+                  :src="message.attach" 
+                  controls
+                  class="w-full"
+                >
+                  <source :src="message.attach" :type="message.content_type">
+                  Your browser does not support the audio tag.
+                </audio>
+                <!-- Document/File -->
+                <div 
+                  v-else 
+                  class="flex items-center gap-2 p-3 bg-gray-50 rounded-lg cursor-pointer"
+                  @click="downloadFile(message.attach, message.message)"
+                >
+                  <FeatherIcon name="file" class="h-6 w-6 text-gray-500" />
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm font-medium truncate">{{ message.message || 'Document' }}</div>
+                    <div class="text-xs text-gray-500">{{ getFileExtension(message.attach) }}</div>
+                  </div>
+                  <FeatherIcon name="download" class="h-4 w-4 text-gray-500" />
+                </div>
+              </div>
+              
+              <!-- Text Message Content -->
               <div 
+                v-if="message.message && message.message.trim()"
                 class="text-sm"
                 :class="message.type === 'Outgoing' ? 'text-white' : 'text-gray-900'"
-                v-html="message.message"
+                v-html="formatWhapiMessage(message.message)"
               />
               
               <!-- Message Status -->
@@ -80,7 +127,8 @@ const messages = computed(() => {
   if (!props.messages) return [];
   return props.messages.map(msg => ({
     ...msg,
-    message: formatWhapiMessage(msg.message)
+    // Only format text messages, not media URLs
+    message: msg.attach && msg.content_type ? msg.message : formatWhapiMessage(msg.message)
   }));
 });
 
@@ -95,8 +143,19 @@ watch(() => props.messages, () => {
 function scrollToBottom() {
   console.log('scrollToBottom called, container:', messagesContainer.value)
   if (messagesContainer.value) {
-    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
-    console.log('Scrolled to bottom, scrollTop:', messagesContainer.value.scrollTop, 'scrollHeight:', messagesContainer.value.scrollHeight)
+    // Try multiple approaches to ensure scrolling works
+    setTimeout(() => {
+      // Method 1: Direct scrollTop assignment
+      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+      
+      // Method 2: Use scrollTo for smoother scrolling
+      messagesContainer.value.scrollTo({
+        top: messagesContainer.value.scrollHeight,
+        behavior: 'smooth'
+      })
+      
+      console.log('Scrolled to bottom, scrollTop:', messagesContainer.value.scrollTop, 'scrollHeight:', messagesContainer.value.scrollHeight)
+    }, 100)
   }
 }
 
@@ -199,12 +258,40 @@ const getMessageOptions = (message) => {
     },
   ]
 }
+
+// Media handling functions
+function openMediaViewer(url, contentType) {
+  if (contentType.startsWith('image/')) {
+    // Open image in new tab for full view
+    window.open(url, '_blank')
+  }
+}
+
+function downloadFile(url, filename) {
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename || 'download'
+  link.target = '_blank'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+function getFileExtension(url) {
+  if (!url) return ''
+  const filename = url.split('/').pop()
+  return filename.split('.').pop().toUpperCase()
+}
 </script>
 
 <style scoped>
 .overflow-y-auto {
   scrollbar-width: thin;
   scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+  height: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .overflow-y-auto::-webkit-scrollbar {
@@ -222,5 +309,21 @@ const getMessageOptions = (message) => {
 
 .max-w-[80%] {
   max-width: 80%;
+}
+
+/* Media styling */
+img {
+  max-width: 300px;
+  max-height: 300px;
+  object-fit: cover;
+}
+
+video {
+  max-width: 300px;
+  max-height: 300px;
+}
+
+audio {
+  max-width: 300px;
 }
 </style> 
