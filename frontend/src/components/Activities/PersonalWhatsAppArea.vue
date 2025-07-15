@@ -149,24 +149,48 @@ watch(() => props.messages, () => {
 function scrollToBottom() {
   console.log('scrollToBottom called, container:', messagesContainer.value)
   if (messagesContainer.value) {
-    // Try multiple approaches to ensure scrolling works
-    setTimeout(() => {
-      // Method 1: Direct scrollTop assignment
-      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
-      
-      // Method 2: Use scrollTo for smoother scrolling
-      messagesContainer.value.scrollTo({
-        top: messagesContainer.value.scrollHeight,
-        behavior: 'smooth'
-      })
-      
-      // Method 3: Force scroll after a bit more delay
+    // Log container details for debugging
+    console.log('Container details:', {
+      scrollHeight: messagesContainer.value.scrollHeight,
+      clientHeight: messagesContainer.value.clientHeight,
+      scrollTop: messagesContainer.value.scrollTop,
+      offsetHeight: messagesContainer.value.offsetHeight
+    })
+    
+    // Check if scrolling is needed
+    const hasScrollableContent = messagesContainer.value.scrollHeight > messagesContainer.value.clientHeight
+    console.log('Has scrollable content:', hasScrollableContent)
+    
+    if (hasScrollableContent) {
+      // Try multiple approaches to ensure scrolling works
       setTimeout(() => {
+        // Method 1: Direct scrollTop assignment
         messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
-      }, 200)
+        
+        // Method 2: Use scrollTo for smoother scrolling
+        messagesContainer.value.scrollTo({
+          top: messagesContainer.value.scrollHeight,
+          behavior: 'smooth'
+        })
+        
+        // Method 3: Force scroll after a bit more delay
+        setTimeout(() => {
+          messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+          console.log('Final scroll position:', messagesContainer.value.scrollTop)
+        }, 200)
+        
+        console.log('Scrolled to bottom, scrollTop:', messagesContainer.value.scrollTop, 'scrollHeight:', messagesContainer.value.scrollHeight)
+      }, 100)
+    } else {
+      console.log('No scrollable content, container height:', messagesContainer.value.clientHeight)
       
-      console.log('Scrolled to bottom, scrollTop:', messagesContainer.value.scrollTop, 'scrollHeight:', messagesContainer.value.scrollHeight)
-    }, 100)
+      // Try scrolling the parent container as fallback
+      const parentContainer = messagesContainer.value.parentElement
+      if (parentContainer && parentContainer.scrollHeight > parentContainer.clientHeight) {
+        console.log('Trying to scroll parent container')
+        parentContainer.scrollTop = parentContainer.scrollHeight
+      }
+    }
   }
 }
 
@@ -316,35 +340,47 @@ function isAudioFile(attach, contentType) {
     return true
   }
   
-  // Fallback: check file extension
+  // Fallback: check file extension (handle cases with codecs info)
   const audioExtensions = ['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a']
-  const extension = getFileExtension(attach).toLowerCase()
+  let extension = getFileExtension(attach).toLowerCase()
+  
+  // Remove codecs info if present (e.g., "ogg; codecs=opus" -> "ogg")
+  if (extension.includes(';')) {
+    extension = extension.split(';')[0].trim()
+  }
+  
   return audioExtensions.includes(extension)
 }
 
 function getMediaUrl(attach) {
   if (!attach) return ''
   
+  // Clean the attach string (remove codecs info if present)
+  let cleanAttach = attach
+  if (cleanAttach.includes('; codecs=')) {
+    cleanAttach = cleanAttach.split('; codecs=')[0]
+  }
+  
   // If it's already a full URL, return as is
-  if (attach.startsWith('http://') || attach.startsWith('https://')) {
-    return attach
+  if (cleanAttach.startsWith('http://') || cleanAttach.startsWith('https://')) {
+    return cleanAttach
   }
   
   // If it's a file path starting with /files/, convert to proper URL
-  if (attach.startsWith('/files/')) {
+  if (cleanAttach.startsWith('/files/')) {
     // Get the current domain
     const baseUrl = window.location.origin
-    return `${baseUrl}${attach}`
+    return `${baseUrl}${cleanAttach}`
   }
   
   // If it's a relative path, assume it's relative to the current domain
-  if (attach.startsWith('/')) {
+  if (cleanAttach.startsWith('/')) {
     const baseUrl = window.location.origin
-    return `${baseUrl}${attach}`
+    return `${baseUrl}${cleanAttach}`
   }
   
   // Otherwise, return as is (might be a data URL or other format)
-  return attach
+  return cleanAttach
 }
 
 // Media handling functions
@@ -388,6 +424,7 @@ function handleImageError(event) {
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
+  min-height: 0; /* Important for flexbox scrolling */
 }
 
 .overflow-y-auto::-webkit-scrollbar {
