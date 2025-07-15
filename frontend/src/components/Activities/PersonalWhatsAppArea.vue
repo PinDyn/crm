@@ -207,7 +207,7 @@ function formatWhapiMessage(message) {
   // if message contains *text*, make it bold
   message = message.replace(/\*(.*?)\*/g, '<b>$1</b>')
   // if message contains ~text~, make it strikethrough
-  message = message.replace(/~(.*?)~/g, '<s>$1</s>')
+  message = message.replace(/~(.*?)~/g, '$1')
   // if message contains ```text```, make it monospace
   message = message.replace(/```(.*?)```/g, '<code>$1</code>')
   // if message contains `text`, make it inline code
