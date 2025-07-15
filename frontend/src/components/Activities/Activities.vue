@@ -3,7 +3,7 @@
     v-model="tabIndex"
     v-model:showWhatsappTemplates="showWhatsappTemplates"
     v-model:showFilesUploader="showFilesUploader"
-    v-model:smsBox="smsBox"
+    v-model:personalWhatsAppBox="personalWhatsAppBox"
     :tabs="tabs"
     :title="title"
     :doc="doc"
@@ -26,7 +26,7 @@
       v-else-if="
         activities?.length ||
         title == 'WhatsApp' ||
-        title == 'SMS'
+        title == 'Personal WhatsApp'
       "
       class="activities"
     >
@@ -38,18 +38,18 @@
           :messages="whatsappMessages.data"
         />
       </div>
-      <div v-else-if="title == 'SMS'">
-        <SMSArea
+      <div v-else-if="title == 'Personal WhatsApp'">
+        <PersonalWhatsAppArea
           class="px-3 sm:px-10"
-          v-model="smsMessages"
+          v-model="whapiMessages"
           v-model:reply="replyMessage"
-          :messages="smsMessages.data || []"
+          :messages="whapiMessages.data || []"
           :contact="doc?.value?.data ? {
             doctype: doc.value.data.doctype,
             name: doc.value.data.name,
             mobile_no: doc.value.data.mobile_no
           } : null"
-          @reload="smsMessages.reload()"
+          @reload="whapiMessages.reload()"
         />
       </div>
       <div
@@ -435,12 +435,12 @@
       :doctype="doctype"
       @scroll="scroll"
     />
-    <SMSBox
-      ref="smsBox"
-      v-if="title == 'SMS'"
+    <PersonalWhatsAppBox
+      ref="personalWhatsAppBox"
+      v-if="title == 'Personal WhatsApp'"
       v-model="doc"
       v-model:reply="replyMessage"
-      v-model:sms="smsMessages"
+      v-model:sms="whapiMessages"
       :doctype="doctype"
       @scroll="scroll"
     />
@@ -469,13 +469,13 @@
       }
     "
   />
-  <Dialog v-model="smsBox.show" :show="smsBox.show" :options="{ size: 'md' }">
+  <Dialog v-model="personalWhatsAppBox.show" :show="personalWhatsAppBox.show" :options="{ size: 'md' }">
     <template #body-content>
-      <SMSBox
-        v-model:show="smsBox.show"
+      <PersonalWhatsAppBox
+        v-model:show="personalWhatsAppBox.show"
         v-model:message="message"
-        v-model:messages="smsMessages"
-        :contact="smsBox.contact"
+        v-model:messages="whapiMessages"
+        :contact="personalWhatsAppBox.contact"
       />
     </template>
   </Dialog>
@@ -516,8 +516,8 @@ import CommunicationArea from '@/components/CommunicationArea.vue'
 import WhatsappTemplateSelectorModal from '@/components/Modals/WhatsappTemplateSelectorModal.vue'
 import AllModals from '@/components/Activities/AllModals.vue'
 import FilesUploader from '@/components/FilesUploader/FilesUploader.vue'
-import SMSArea from '@/components/Activities/SMSArea.vue'
-import SMSBox from '@/components/Activities/SMSBox.vue'
+import PersonalWhatsAppArea from '@/components/Activities/PersonalWhatsAppArea.vue'
+import PersonalWhatsAppBox from '@/components/Activities/PersonalWhatsAppBox.vue'
 import { timeAgo, formatDate, startCase } from '@/utils'
 import { globalStore } from '@/stores/global'
 import { usersStore } from '@/stores/users'
@@ -561,9 +561,9 @@ const showFilesUploader = ref(false)
 const title = computed(() => props.tabs?.[tabIndex.value]?.name || 'Activity')
 
 // Initialize resources
-const smsMessages = createResource({
+const whapiMessages = createResource({
   url: 'crm.api.sms.get_messages',
-  cache: ['sms_messages', doc.value?.data?.name],
+  cache: ['whapi_messages', doc.value?.data?.name],
   params: {
     reference_doctype: props.doctype,
     reference_name: doc.value.data.name
@@ -572,7 +572,7 @@ const smsMessages = createResource({
   transform: (data) => sortByCreation(data),
   onSuccess: () => nextTick(() => scroll()),
   onError: (error) => {
-    console.error('Error loading SMS messages:', error);
+    console.error('Error loading Whapi messages:', error);
   }
 });
 
@@ -587,7 +587,7 @@ const all_activities = createResource({
 })
 
 const showWhatsappTemplates = ref(false)
-const smsBox = ref({
+const personalWhatsAppBox = ref({
   show: false,
   contact: null
 })
@@ -608,19 +608,19 @@ const whatsappMessages = createResource({
 // Add watcher for doc changes
 watch(doc, (newDoc) => {
   if (newDoc?.value?.data) {
-    smsMessages.reload();
+    whapiMessages.reload();
   }
 }, { immediate: true });
 
 // Add watcher for title changes
 watch(() => title.value, (newTitle) => {
-  if (newTitle === 'SMS') {
-    smsMessages.reload();
+  if (newTitle === 'Personal WhatsApp') {
+    whapiMessages.reload();
   }
 });
 
-// Add watcher for smsMessages data
-watch(() => smsMessages.data, () => {
+// Add watcher for whapiMessages data
+watch(() => whapiMessages.data, () => {
   // No logging needed
 }, { deep: true });
 
@@ -638,7 +638,7 @@ const changeTabTo = (tabName) => {
 
 onBeforeUnmount(() => {
   $socket.off('whatsapp_message')
-  $socket.off('sms_message')
+  $socket.off('whapi_message')
 })
 
 onMounted(() => {
@@ -651,12 +651,12 @@ onMounted(() => {
     }
   })
 
-  $socket.on('sms_message', (data) => {
+  $socket.on('whapi_message', (data) => {
     if (
       data.reference_doctype === props.doctype &&
       data.reference_name === doc.value?.data?.name
     ) {
-      smsMessages.reload();
+      whapiMessages.reload();
     }
   })
 
@@ -789,8 +789,8 @@ const emptyText = computed(() => {
     text = 'No Attachments'
   } else if (title.value == 'WhatsApp') {
     text = 'No WhatsApp Messages'
-  } else if (title.value == 'SMS') {
-    text = 'No SMS Messages'
+  } else if (title.value == 'Personal WhatsApp') {
+    text = 'No Personal WhatsApp Messages'
   }
   return text
 })
@@ -813,8 +813,8 @@ const emptyTextIcon = computed(() => {
     icon = AttachmentIcon
   } else if (title.value == 'WhatsApp') {
     icon = WhatsAppIcon
-  } else if (title.value == 'SMS') {
-    icon = PhoneIcon
+  } else if (title.value == 'Personal WhatsApp') {
+    icon = WhatsAppIcon
   }
   return h(icon, { class: 'text-ink-gray-4' })
 })

@@ -588,9 +588,9 @@ const tabs = computed(() => {
       condition: () => whatsappEnabled.value,
     },
     {
-      name: 'SMS',
-      label: __('SMS'),
-      icon: PhoneIcon,
+      name: 'Personal WhatsApp',
+      label: __('Personal WhatsApp'),
+      icon: WhatsAppIcon,
     },
   ]
   return tabOptions.filter((tab) => (tab.condition ? tab.condition() : true))

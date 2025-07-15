@@ -73,10 +73,10 @@
         <span>{{ __('New Message') }}</span>
       </Button>
     </div>
-    <div class="flex gap-2 shrink-0" v-else-if="title == 'SMS'">
+    <div class="flex gap-2 shrink-0" v-else-if="title == 'Personal WhatsApp'">
       <Button variant="solid" @click="() => {
         console.log('Full doc object:', props.doc);
-        emit('update:smsBox', { 
+        emit('update:personalWhatsAppBox', { 
           show: true,
           contact: {
             doctype: props.doc.doctype,
@@ -88,7 +88,7 @@
         <template #prefix>
           <FeatherIcon name="plus" class="h-4 w-4" />
         </template>
-        <span>{{ __('New SMS') }}</span>
+        <span>{{ __('New Personal WhatsApp Message') }}</span>
       </Button>
     </div>
     <Dropdown v-else :options="defaultActions" @click.stop>
@@ -130,7 +130,7 @@ const props = defineProps({
   modalRef: Object,
   emailBox: Object,
   whatsappBox: Object,
-  smsBox: Object,
+  personalWhatsAppBox: Object,
 })
 
 const { makeCall } = globalStore()
@@ -139,7 +139,7 @@ const tabIndex = defineModel()
 const showWhatsappTemplates = defineModel('showWhatsappTemplates')
 const showFilesUploader = defineModel('showFilesUploader')
 
-const emit = defineEmits(['update:smsBox'])
+const emit = defineEmits(['update:personalWhatsAppBox'])
 
 const defaultActions = computed(() => {
   let actions = [
@@ -186,11 +186,11 @@ const defaultActions = computed(() => {
       condition: () => whatsappEnabled.value,
     },
     {
-      icon: h(PhoneIcon, { class: 'h-4 w-4' }),
-      label: __('New SMS'),
+      icon: h(WhatsAppIcon, { class: 'h-4 w-4' }),
+      label: __('New Personal WhatsApp Message'),
       onClick: () => {
         console.log('Full doc object:', props.doc);
-        emit('update:smsBox', { 
+        emit('update:personalWhatsAppBox', { 
           show: true,
           contact: {
             doctype: props.doc.doctype,
