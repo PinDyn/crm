@@ -70,6 +70,7 @@
                         @loadedmetadata="handleAudioLoaded"
                         @error="handleAudioError"
                         preload="metadata"
+                        crossorigin="anonymous"
                       />
                       <button 
                         class="play-pause-btn" 
@@ -332,18 +333,14 @@ function isAudioFile(attach, contentType) {
 function getMediaUrl(attach) {
   if (!attach) return ''
   
-  console.log('Processing media URL:', attach)
-  
   // Clean the attach string (remove codecs info if present)
   let cleanAttach = attach
   if (cleanAttach.includes('; codecs=')) {
     cleanAttach = cleanAttach.split('; codecs=')[0]
-    console.log('Cleaned codecs info:', cleanAttach)
   }
   
   // If it's already a full URL, return as is
   if (cleanAttach.startsWith('http://') || cleanAttach.startsWith('https://')) {
-    console.log('Full URL detected:', cleanAttach)
     return cleanAttach
   }
   
@@ -352,7 +349,6 @@ function getMediaUrl(attach) {
     // Get the current domain
     const baseUrl = window.location.origin
     const fullUrl = `${baseUrl}${cleanAttach}`
-    console.log('Converted file path to URL:', fullUrl)
     return fullUrl
   }
   
@@ -360,12 +356,10 @@ function getMediaUrl(attach) {
   if (cleanAttach.startsWith('/')) {
     const baseUrl = window.location.origin
     const fullUrl = `${baseUrl}${cleanAttach}`
-    console.log('Converted relative path to URL:', fullUrl)
     return fullUrl
   }
   
   // Otherwise, return as is (might be a data URL or other format)
-  console.log('Returning as-is:', cleanAttach)
   return cleanAttach
 }
 
@@ -405,8 +399,12 @@ function handleAudioLoaded(event) {
 }
 
 function handleAudioError(event) {
-  console.log('Audio failed to load:', event.target.src)
-  console.log('Audio error:', event.target.error)
+  console.error('Audio failed to load:', event.target.src)
+  console.error('Audio error details:', {
+    error: event.target.error,
+    networkState: event.target.networkState,
+    readyState: event.target.readyState
+  })
 }
 
 // Audio player functions
@@ -419,9 +417,21 @@ function toggleAudio(event, audioSrc) {
   const playIcon = btn.querySelector('.play-icon')
   const pauseIcon = btn.querySelector('.pause-icon')
   
+  // Ensure audio source is set
+  if (audio.src !== audioSrc) {
+    audio.src = audioSrc
+  }
+  
   if (audio.paused) {
     // Play audio
-    audio.play()
+    audio.play().catch(error => {
+      console.error('Error playing audio:', error)
+      // Reset button state on error
+      btn.classList.remove('playing')
+      playIcon.style.display = 'block'
+      pauseIcon.style.display = 'none'
+    })
+    
     btn.classList.add('playing')
     playIcon.style.display = 'none'
     pauseIcon.style.display = 'block'
