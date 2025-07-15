@@ -1,6 +1,6 @@
 <template>
-  <div class="flex flex-col gap-4 h-full">
-    <div ref="messagesContainer" class="flex-1 overflow-y-auto min-h-0">
+  <div class="flex flex-col h-full">
+    <div ref="messagesContainer" class="flex-1 overflow-y-auto" style="height: 0;">
       <div class="flex flex-col gap-4 p-4">
         <div
           v-for="message in messages"
@@ -54,6 +54,9 @@
                   :src="message.mediaUrl" 
                   controls
                   class="w-full"
+                  preload="metadata"
+                  @loadedmetadata="handleAudioLoaded"
+                  @error="handleAudioError"
                 >
                   <source :src="message.mediaUrl" :type="message.content_type">
                   Your browser does not support the audio tag.
@@ -157,6 +160,9 @@ function scrollToBottom() {
       offsetHeight: messagesContainer.value.offsetHeight
     })
     
+    // Force a reflow to ensure accurate measurements
+    messagesContainer.value.offsetHeight
+    
     // Check if scrolling is needed
     const hasScrollableContent = messagesContainer.value.scrollHeight > messagesContainer.value.clientHeight
     console.log('Has scrollable content:', hasScrollableContent)
@@ -189,6 +195,19 @@ function scrollToBottom() {
       if (parentContainer && parentContainer.scrollHeight > parentContainer.clientHeight) {
         console.log('Trying to scroll parent container')
         parentContainer.scrollTop = parentContainer.scrollHeight
+      }
+      
+      // Try scrolling the grandparent container as another fallback
+      const grandParentContainer = parentContainer?.parentElement
+      if (grandParentContainer && grandParentContainer.scrollHeight > grandParentContainer.clientHeight) {
+        console.log('Trying to scroll grandparent container')
+        grandParentContainer.scrollTop = grandParentContainer.scrollHeight
+      }
+      
+      // Last resort: try to scroll the window
+      if (window.scrollY > 0) {
+        console.log('Trying to scroll window')
+        window.scrollTo(0, document.body.scrollHeight)
       }
     }
   }
@@ -355,14 +374,18 @@ function isAudioFile(attach, contentType) {
 function getMediaUrl(attach) {
   if (!attach) return ''
   
+  console.log('Processing media URL:', attach)
+  
   // Clean the attach string (remove codecs info if present)
   let cleanAttach = attach
   if (cleanAttach.includes('; codecs=')) {
     cleanAttach = cleanAttach.split('; codecs=')[0]
+    console.log('Cleaned codecs info:', cleanAttach)
   }
   
   // If it's already a full URL, return as is
   if (cleanAttach.startsWith('http://') || cleanAttach.startsWith('https://')) {
+    console.log('Full URL detected:', cleanAttach)
     return cleanAttach
   }
   
@@ -370,16 +393,21 @@ function getMediaUrl(attach) {
   if (cleanAttach.startsWith('/files/')) {
     // Get the current domain
     const baseUrl = window.location.origin
-    return `${baseUrl}${cleanAttach}`
+    const fullUrl = `${baseUrl}${cleanAttach}`
+    console.log('Converted file path to URL:', fullUrl)
+    return fullUrl
   }
   
   // If it's a relative path, assume it's relative to the current domain
   if (cleanAttach.startsWith('/')) {
     const baseUrl = window.location.origin
-    return `${baseUrl}${cleanAttach}`
+    const fullUrl = `${baseUrl}${cleanAttach}`
+    console.log('Converted relative path to URL:', fullUrl)
+    return fullUrl
   }
   
   // Otherwise, return as is (might be a data URL or other format)
+  console.log('Returning as-is:', cleanAttach)
   return cleanAttach
 }
 
@@ -412,6 +440,61 @@ function handleImageError(event) {
   // Optionally show a fallback or error message
   event.target.style.display = 'none'
 }
+
+function handleAudioLoaded(event) {
+  console.log('Audio loaded successfully:', event.target.src)
+  console.log('Audio duration:', event.target.duration)
+}
+
+function handleAudioError(event) {
+  console.log('Audio failed to load:', event.target.src)
+  console.log('Audio error:', event.target.error)
+  
+  // Try to get more details about the error
+  const audio = event.target
+  if (audio.error) {
+    console.log('Error code:', audio.error.code)
+    console.log('Error message:', audio.error.message)
+  }
+  
+  // Test if the URL is accessible
+  testAudioUrl(event.target.src)
+  
+  // Show a fallback message
+  const audioContainer = event.target.parentElement
+  if (audioContainer) {
+    audioContainer.innerHTML = `
+      <div class="flex items-center gap-2 p-3 bg-red-50 rounded-lg text-red-600">
+        <FeatherIcon name="alert-circle" class="h-4 w-4" />
+        <span class="text-sm">Audio file could not be loaded</span>
+        <button 
+          class="text-xs underline"
+          onclick="window.open('${event.target.src}', '_blank')"
+        >
+          Try to open directly
+        </button>
+      </div>
+    `
+  }
+}
+
+function testAudioUrl(url) {
+  console.log('Testing audio URL accessibility:', url)
+  
+  // Try to fetch the audio file to see if it's accessible
+  fetch(url, { method: 'HEAD' })
+    .then(response => {
+      console.log('Audio URL test response:', response.status, response.statusText)
+      if (response.ok) {
+        console.log('Audio file is accessible')
+      } else {
+        console.log('Audio file returned error status:', response.status)
+      }
+    })
+    .catch(error => {
+      console.log('Audio URL test failed:', error)
+    })
+}
 </script>
 
 <style scoped>
@@ -425,6 +508,13 @@ function handleImageError(event) {
   display: flex;
   flex-direction: column;
   min-height: 0; /* Important for flexbox scrolling */
+  flex-shrink: 1; /* Allow container to shrink */
+}
+
+/* Force the messages container to have a constrained height */
+.flex-1.overflow-y-auto {
+  height: 0; /* Force flex item to respect parent height */
+  flex: 1 1 0%; /* flex-grow: 1, flex-shrink: 1, flex-basis: 0% */
 }
 
 .overflow-y-auto::-webkit-scrollbar {
