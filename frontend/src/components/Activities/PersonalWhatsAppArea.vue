@@ -27,41 +27,42 @@
           >
             <div class="flex w-full flex-col gap-1">
               <!-- Media Content -->
-              <div v-if="message.attach && message.content_type" class="mb-2">
+              <div v-if="message.attach" class="mb-2">
                 <!-- Image -->
                 <img 
-                  v-if="message.content_type.startsWith('image/')" 
-                  :src="message.attach" 
+                  v-if="message.isImage" 
+                  :src="message.mediaUrl" 
                   :alt="message.message || 'Image'"
                   class="max-w-full rounded-lg cursor-pointer"
-                  @click="openMediaViewer(message.attach, message.content_type)"
+                  @click="openMediaViewer(message.mediaUrl, message.content_type)"
+                  @error="handleImageError"
                 />
                 <!-- Video -->
                 <video 
-                  v-else-if="message.content_type.startsWith('video/')" 
-                  :src="message.attach" 
+                  v-else-if="message.isVideo" 
+                  :src="message.mediaUrl" 
                   controls
                   class="max-w-full rounded-lg"
                   preload="metadata"
                 >
-                  <source :src="message.attach" :type="message.content_type">
+                  <source :src="message.mediaUrl" :type="message.content_type">
                   Your browser does not support the video tag.
                 </video>
                 <!-- Audio -->
                 <audio 
-                  v-else-if="message.content_type.startsWith('audio/')" 
-                  :src="message.attach" 
+                  v-else-if="message.isAudio" 
+                  :src="message.mediaUrl" 
                   controls
                   class="w-full"
                 >
-                  <source :src="message.attach" :type="message.content_type">
+                  <source :src="message.mediaUrl" :type="message.content_type">
                   Your browser does not support the audio tag.
                 </audio>
                 <!-- Document/File -->
                 <div 
                   v-else 
                   class="flex items-center gap-2 p-3 bg-gray-50 rounded-lg cursor-pointer"
-                  @click="downloadFile(message.attach, message.message)"
+                  @click="downloadFile(message.mediaUrl, message.message)"
                 >
                   <FeatherIcon name="file" class="h-6 w-6 text-gray-500" />
                   <div class="flex-1 min-w-0">
@@ -128,7 +129,12 @@ const messages = computed(() => {
   return props.messages.map(msg => ({
     ...msg,
     // Only format text messages, not media URLs
-    message: msg.attach && msg.content_type ? msg.message : formatWhapiMessage(msg.message)
+    message: msg.attach && msg.content_type ? msg.message : formatWhapiMessage(msg.message),
+    // Add computed properties for better media handling
+    isImage: isImageFile(msg.attach, msg.content_type),
+    isVideo: isVideoFile(msg.attach, msg.content_type),
+    isAudio: isAudioFile(msg.attach, msg.content_type),
+    mediaUrl: getMediaUrl(msg.attach)
   }));
 });
 
@@ -154,6 +160,11 @@ function scrollToBottom() {
         behavior: 'smooth'
       })
       
+      // Method 3: Force scroll after a bit more delay
+      setTimeout(() => {
+        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+      }, 200)
+      
       console.log('Scrolled to bottom, scrollTop:', messagesContainer.value.scrollTop, 'scrollHeight:', messagesContainer.value.scrollHeight)
     }, 100)
   }
@@ -172,6 +183,15 @@ watch(() => props.messages, () => {
     scrollToBottom()
   })
 }, { deep: true, immediate: true })
+
+// Additional watcher for when the container is ready
+watch(() => messagesContainer.value, (container) => {
+  if (container) {
+    nextTick(() => {
+      scrollToBottom()
+    })
+  }
+})
 
 function formatWhapiMessage(message) {
   // if message contains _text_, make it italic
@@ -259,9 +279,77 @@ const getMessageOptions = (message) => {
   ]
 }
 
+// Media detection functions
+function isImageFile(attach, contentType) {
+  if (!attach) return false
+  
+  // Check content type first
+  if (contentType && contentType.startsWith('image/')) {
+    return true
+  }
+  
+  // Fallback: check file extension
+  const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg']
+  const extension = getFileExtension(attach).toLowerCase()
+  return imageExtensions.includes(extension)
+}
+
+function isVideoFile(attach, contentType) {
+  if (!attach) return false
+  
+  // Check content type first
+  if (contentType && contentType.startsWith('video/')) {
+    return true
+  }
+  
+  // Fallback: check file extension
+  const videoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv']
+  const extension = getFileExtension(attach).toLowerCase()
+  return videoExtensions.includes(extension)
+}
+
+function isAudioFile(attach, contentType) {
+  if (!attach) return false
+  
+  // Check content type first
+  if (contentType && contentType.startsWith('audio/')) {
+    return true
+  }
+  
+  // Fallback: check file extension
+  const audioExtensions = ['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a']
+  const extension = getFileExtension(attach).toLowerCase()
+  return audioExtensions.includes(extension)
+}
+
+function getMediaUrl(attach) {
+  if (!attach) return ''
+  
+  // If it's already a full URL, return as is
+  if (attach.startsWith('http://') || attach.startsWith('https://')) {
+    return attach
+  }
+  
+  // If it's a file path starting with /files/, convert to proper URL
+  if (attach.startsWith('/files/')) {
+    // Get the current domain
+    const baseUrl = window.location.origin
+    return `${baseUrl}${attach}`
+  }
+  
+  // If it's a relative path, assume it's relative to the current domain
+  if (attach.startsWith('/')) {
+    const baseUrl = window.location.origin
+    return `${baseUrl}${attach}`
+  }
+  
+  // Otherwise, return as is (might be a data URL or other format)
+  return attach
+}
+
 // Media handling functions
 function openMediaViewer(url, contentType) {
-  if (contentType.startsWith('image/')) {
+  if (contentType && contentType.startsWith('image/')) {
     // Open image in new tab for full view
     window.open(url, '_blank')
   }
@@ -282,6 +370,12 @@ function getFileExtension(url) {
   const filename = url.split('/').pop()
   return filename.split('.').pop().toUpperCase()
 }
+
+function handleImageError(event) {
+  console.log('Image failed to load:', event.target.src)
+  // Optionally show a fallback or error message
+  event.target.style.display = 'none'
+}
 </script>
 
 <style scoped>
@@ -292,6 +386,8 @@ function getFileExtension(url) {
   max-height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .overflow-y-auto::-webkit-scrollbar {
