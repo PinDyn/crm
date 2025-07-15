@@ -75,22 +75,7 @@ const props = defineProps({
 const newMessage = ref('')
 const emit = defineEmits(['reply', 'react', 'delete', 'reload'])
 
-// Add polling for new messages
-let pollInterval = null
 
-onMounted(() => {
-  // Start polling every 5 seconds
-  pollInterval = setInterval(() => {
-    emit('reload')
-  }, 5000)
-})
-
-onUnmounted(() => {
-  // Clean up polling when component is destroyed
-  if (pollInterval) {
-    clearInterval(pollInterval)
-  }
-})
 
 const messages = computed(() => {
   if (!props.messages) return [];
@@ -103,12 +88,24 @@ const messages = computed(() => {
 // Add auto-scroll to bottom when new messages arrive
 watch(() => props.messages, () => {
   nextTick(() => {
-    const container = document.querySelector('.overflow-y-auto')
-    if (container) {
-      container.scrollTop = container.scrollHeight
-    }
+    scrollToBottom()
   })
 }, { deep: true })
+
+// Function to scroll to bottom
+function scrollToBottom() {
+  const container = document.querySelector('.overflow-y-auto')
+  if (container) {
+    container.scrollTop = container.scrollHeight
+  }
+}
+
+// Scroll to bottom on mount
+onMounted(() => {
+  nextTick(() => {
+    scrollToBottom()
+  })
+})
 
 function formatWhapiMessage(message) {
   // if message contains _text_, make it italic

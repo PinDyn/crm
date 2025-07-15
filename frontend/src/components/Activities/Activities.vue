@@ -594,6 +594,9 @@ const personalWhatsAppBox = ref({
 })
 const message = ref('')
 
+// Add polling for Personal WhatsApp messages
+let whapiPollInterval = null
+
 const whatsappMessages = createResource({
   url: 'crm.api.whatsapp.get_whatsapp_messages',
   cache: ['whatsapp_messages', doc.value.data.name],
@@ -613,10 +616,20 @@ watch(doc, (newDoc) => {
   }
 }, { immediate: true });
 
-// Add watcher for title changes
+// Add watcher for title changes with polling
 watch(() => title.value, (newTitle) => {
   if (newTitle === 'Personal WhatsApp') {
     whapiMessages.reload();
+    // Start polling every 5 seconds
+    whapiPollInterval = setInterval(() => {
+      whapiMessages.reload()
+    }, 5000)
+  } else {
+    // Stop polling when not on Personal WhatsApp tab
+    if (whapiPollInterval) {
+      clearInterval(whapiPollInterval)
+      whapiPollInterval = null
+    }
   }
 });
 
@@ -639,7 +652,10 @@ const changeTabTo = (tabName) => {
 
 onBeforeUnmount(() => {
   $socket.off('whatsapp_message')
-  $socket.off('whapi_message')
+  // Clean up polling when component is destroyed
+  if (whapiPollInterval) {
+    clearInterval(whapiPollInterval)
+  }
 })
 
 onMounted(() => {
@@ -652,14 +668,7 @@ onMounted(() => {
     }
   })
 
-  $socket.on('whapi_message', (data) => {
-    if (
-      data.reference_doctype === props.doctype &&
-      data.reference_name === doc.value?.data?.name
-    ) {
-      whapiMessages.reload();
-    }
-  })
+
 
   nextTick(() => {
     const hash = route.hash.slice(1) || null
