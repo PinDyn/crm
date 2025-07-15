@@ -22,11 +22,44 @@ def get_messages(reference_doctype, reference_name, mobile_no):
         order_by="creation asc"
     )
 
-    # Convert datetime objects to strings
+    # Convert datetime objects to strings and get actual file URLs
     for message in messages:
         for field in ["creation", "modified", "timestamp"]:
             if message.get(field):
                 message[field] = str(message[field])
+        
+        # If there's an attachment, try to get the actual file URL
+        if message.get("attach"):
+            try:
+                # Try to get the file document
+                file_doc = frappe.get_doc("File", {"file_url": message["attach"]})
+                if file_doc and file_doc.file_url:
+                    # Use the actual file URL from the File doctype
+                    message["attach"] = file_doc.file_url
+                    # Also add file name if available
+                    if file_doc.file_name:
+                        message["file_name"] = file_doc.file_name
+                    # Add mime type if available
+                    if file_doc.content_type:
+                        message["mime_type"] = file_doc.content_type
+                    
+                    # Debug: Log the file URL being used
+                    frappe.logger().debug(f"File URL for message {message.get('name')}: {file_doc.file_url}")
+                else:
+                    # If file doesn't exist, remove the attachment
+                    frappe.logger().warning(f"File document exists but has no file_url for message {message.get('name')}")
+                    message["attach"] = None
+                    message["content_type"] = "text"
+            except frappe.DoesNotExistError:
+                # File doesn't exist, remove the attachment
+                frappe.logger().warning(f"File not found for message {message.get('name')}: {message.get('attach')}")
+                message["attach"] = None
+                message["content_type"] = "text"
+            except Exception as e:
+                # Log error but continue
+                frappe.log_error(f"Error getting file for message {message.get('name')}: {str(e)}")
+                message["attach"] = None
+                message["content_type"] = "text"
 
     return messages
 

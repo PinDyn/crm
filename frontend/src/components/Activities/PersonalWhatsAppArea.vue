@@ -91,6 +91,12 @@
                       <div class="progress-fill"></div>
                     </div>
                   </div>
+                  <!-- Fallback for failed audio -->
+                  <div v-if="message.audioError" class="audio-error">
+                    <div class="text-sm text-red-500 mt-2">
+                      Audio file not available
+                    </div>
+                  </div>
                 </div>
                 <!-- Document/File -->
                 <div 
@@ -333,9 +339,12 @@ function isAudioFile(attach, contentType) {
 function getMediaUrl(attach) {
   if (!attach) return ''
   
-  // Clean the attach string (remove codecs info if present)
+  // For audio files, preserve the codec information
+  const isAudioFile = isAudioFileFromUrl(attach)
+  
+  // Clean the attach string (remove codecs info if present) - but preserve for audio
   let cleanAttach = attach
-  if (cleanAttach.includes('; codecs=')) {
+  if (!isAudioFile && cleanAttach.includes('; codecs=')) {
     cleanAttach = cleanAttach.split('; codecs=')[0]
   }
   
@@ -361,6 +370,23 @@ function getMediaUrl(attach) {
   
   // Otherwise, return as is (might be a data URL or other format)
   return cleanAttach
+}
+
+// Helper function to detect audio files from URL
+function isAudioFileFromUrl(url) {
+  if (!url) return false
+  
+  // Check file extension
+  const audioExtensions = ['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a', 'oga', 'opus']
+  const extension = getFileExtension(url).toLowerCase()
+  
+  // Remove codecs info if present for extension check
+  let cleanExtension = extension
+  if (cleanExtension.includes(';')) {
+    cleanExtension = cleanExtension.split(';')[0].trim()
+  }
+  
+  return audioExtensions.includes(cleanExtension)
 }
 
 // Media handling functions
@@ -405,6 +431,20 @@ function handleAudioError(event) {
     networkState: event.target.networkState,
     readyState: event.target.readyState
   })
+  
+  // Set audioError flag on the message
+  const audioPlayer = event.target.closest('.audio-player')
+  if (audioPlayer) {
+    const messageElement = audioPlayer.closest('[id]')
+    if (messageElement) {
+      const messageId = messageElement.id
+      // Find the message in the messages array and set audioError flag
+      const message = props.messages.find(msg => msg.name === messageId)
+      if (message) {
+        message.audioError = true
+      }
+    }
+  }
 }
 
 // Audio player functions
