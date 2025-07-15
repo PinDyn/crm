@@ -169,7 +169,10 @@ const messages = computed(() => {
   return props.messages.map(msg => ({
     ...msg,
     // Only format text messages, not media URLs
-    message: msg.attach && msg.content_type ? msg.message : formatWhapiMessage(msg.message),
+    // If there's an attachment and the message is just a file path or filename, clear it
+    message: msg.attach && msg.content_type ? 
+      (msg.message && !msg.message.startsWith('/files/') && !msg.message.includes('.') ? msg.message : '') : 
+      formatWhapiMessage(msg.message),
     // Add computed properties for better media handling
     isImage: isImageFile(msg.attach, msg.content_type),
     isVideo: isVideoFile(msg.attach, msg.content_type),
