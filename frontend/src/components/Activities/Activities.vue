@@ -618,15 +618,19 @@ watch(doc, (newDoc) => {
 
 // Add watcher for title changes with polling
 watch(() => title.value, (newTitle) => {
+  console.log('Title changed to:', newTitle)
   if (newTitle === 'Personal WhatsApp') {
+    console.log('Starting Personal WhatsApp polling')
     whapiMessages.reload();
     // Start polling every 5 seconds
     whapiPollInterval = setInterval(() => {
+      console.log('Polling for new Personal WhatsApp messages...')
       whapiMessages.reload()
     }, 5000)
   } else {
     // Stop polling when not on Personal WhatsApp tab
     if (whapiPollInterval) {
+      console.log('Stopping Personal WhatsApp polling')
       clearInterval(whapiPollInterval)
       whapiPollInterval = null
     }
@@ -668,7 +672,14 @@ onMounted(() => {
     }
   })
 
-
+  // Start polling immediately if Personal WhatsApp tab is already active
+  if (title.value === 'Personal WhatsApp') {
+    console.log('Personal WhatsApp tab already active, starting polling')
+    whapiPollInterval = setInterval(() => {
+      console.log('Polling for new Personal WhatsApp messages...')
+      whapiMessages.reload()
+    }, 5000)
+  }
 
   nextTick(() => {
     const hash = route.hash.slice(1) || null

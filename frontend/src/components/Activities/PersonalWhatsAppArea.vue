@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col gap-4 h-full">
-    <div class="flex-1 overflow-y-auto">
+    <div ref="messagesContainer" class="flex-1 overflow-y-auto">
       <div class="flex flex-col gap-4 p-4">
         <div
           v-for="message in messages"
@@ -73,9 +73,8 @@ const props = defineProps({
 })
 
 const newMessage = ref('')
+const messagesContainer = ref(null)
 const emit = defineEmits(['reply', 'react', 'delete', 'reload'])
-
-
 
 const messages = computed(() => {
   if (!props.messages) return [];
@@ -94,9 +93,10 @@ watch(() => props.messages, () => {
 
 // Function to scroll to bottom
 function scrollToBottom() {
-  const container = document.querySelector('.overflow-y-auto')
-  if (container) {
-    container.scrollTop = container.scrollHeight
+  console.log('scrollToBottom called, container:', messagesContainer.value)
+  if (messagesContainer.value) {
+    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+    console.log('Scrolled to bottom, scrollTop:', messagesContainer.value.scrollTop, 'scrollHeight:', messagesContainer.value.scrollHeight)
   }
 }
 
@@ -106,6 +106,13 @@ onMounted(() => {
     scrollToBottom()
   })
 })
+
+// Also scroll to bottom when messages change
+watch(() => props.messages, () => {
+  nextTick(() => {
+    scrollToBottom()
+  })
+}, { deep: true, immediate: true })
 
 function formatWhapiMessage(message) {
   // if message contains _text_, make it italic
