@@ -1,7 +1,6 @@
 <template>
   <div class="flex flex-col gap-4">
-    <div class="flex items-center justify-between">
-      <div class="text-lg font-medium">New Personal WhatsApp Message</div>
+    <div class="flex items-center justify-end">
       <Button
         ref="closeButton"
         icon="x"

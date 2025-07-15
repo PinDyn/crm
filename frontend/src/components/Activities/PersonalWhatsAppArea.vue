@@ -1,7 +1,5 @@
 <template>
   <div class="flex flex-col gap-4 h-full">
-    <div class="text-lg font-medium">Personal WhatsApp Messages</div>
-
     <div class="flex-1 overflow-y-auto">
       <div class="flex flex-col gap-4 p-4">
         <div
