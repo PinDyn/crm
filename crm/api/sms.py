@@ -38,9 +38,9 @@ def send_message(reference_doctype, reference_name, message, recipient, whapi_ch
 
     # Get default whapi channel if not specified
     if not whapi_channel:
-        channels = frappe.get_all("Whapi Channel", filters={"enabled": 1}, limit=1)
+        channels = frappe.get_all("Whapi Channel", limit=1)
         if not channels:
-            frappe.throw(_("No enabled Whapi Channel found. Please configure a Whapi Channel first."))
+            frappe.throw(_("No Whapi Channel found. Please configure a Whapi Channel first."))
         whapi_channel = channels[0].name
 
     # Create Whapi Message document
