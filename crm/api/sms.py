@@ -2,18 +2,24 @@ import frappe
 from frappe import _
 
 @frappe.whitelist()
-def get_messages(reference_doctype, reference_name):
-    """Get Whapi messages for a document"""
-    if not reference_doctype or not reference_name:
-        frappe.throw(_("Reference Doctype and Reference Name are required"))
+def get_messages(reference_doctype, reference_name, mobile_no):
+    """Get Whapi messages for a document using mobile number"""
+    if not mobile_no:
+        frappe.throw(_("Mobile number is required"))
 
+    # Get messages using mobile number like whapi_chat app
     messages = frappe.get_all(
         "Whapi Message",
-        filters={
-            "reference_doctype": reference_doctype,
-            "reference_name": reference_name
-        },
-        fields=["*"]
+        filters={},  # No base filters
+        or_filters=[
+            ["from", "=", mobile_no],  # Incoming messages from this contact
+            ["to", "=", mobile_no]     # Outgoing messages to this contact
+        ],
+        fields=[
+            "name", "type", "status", "message", "raw_message", "from", "to", "creation",
+            "attach", "content_type", "whapi_channel", "reference_doctype", "reference_name"
+        ],
+        order_by="creation asc"
     )
 
     # Convert datetime objects to strings

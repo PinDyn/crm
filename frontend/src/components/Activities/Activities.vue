@@ -566,7 +566,8 @@ const whapiMessages = createResource({
   cache: ['whapi_messages', doc.value?.data?.name],
   params: {
     reference_doctype: props.doctype,
-    reference_name: doc.value.data.name
+    reference_name: doc.value.data.name,
+    mobile_no: doc.value.data.mobile_no
   },
   auto: true,
   transform: (data) => sortByCreation(data),
