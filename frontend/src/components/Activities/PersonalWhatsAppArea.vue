@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col h-full">
-    <div ref="messagesContainer" class="flex-1 overflow-y-auto">
+    <div ref="messagesContainer" class="flex-1">
       <div class="flex flex-col gap-4 p-4">
         <div
           v-for="message in messages"
@@ -49,12 +49,48 @@
                   Your browser does not support the video tag.
                 </video>
                 <!-- Audio -->
-                <audio 
+                <div 
                   v-else-if="message.isAudio" 
-                  :src="message.mediaUrl" 
-                  controls
-                  class="cursor-pointer"
-                />
+                  class="audio-player"
+                >
+                  <div class="audio-player-content">
+                    <div class="audio-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
+                      </svg>
+                    </div>
+                    <div class="audio-info">
+                      <div class="audio-title">Audio Message</div>
+                      <div class="audio-duration">0:00 / 0:00</div>
+                    </div>
+                    <div class="audio-controls">
+                      <audio 
+                        :src="message.mediaUrl" 
+                        style="display: none;"
+                        @loadedmetadata="handleAudioLoaded"
+                        @error="handleAudioError"
+                        preload="metadata"
+                      />
+                      <button 
+                        class="play-pause-btn" 
+                        :data-audio-src="message.mediaUrl"
+                        @click="toggleAudio($event, message.mediaUrl)"
+                      >
+                        <svg class="play-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M8 5v14l11-7z"/>
+                        </svg>
+                        <svg class="pause-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
+                          <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="audio-progress">
+                    <div class="progress-bar" @click="seekAudio($event, message.mediaUrl)">
+                      <div class="progress-fill"></div>
+                    </div>
+                  </div>
+                </div>
                 <!-- Document/File -->
                 <div 
                   v-else 
@@ -135,7 +171,7 @@ const messages = computed(() => {
   }));
 });
 
-// Add auto-scroll to bottom when new messages arrive
+// Simplified scrolling logic - only one watcher
 watch(() => props.messages, () => {
   nextTick(() => {
     scrollToBottom()
@@ -144,9 +180,10 @@ watch(() => props.messages, () => {
 
 // Function to scroll to bottom
 function scrollToBottom() {
-  if (messagesContainer.value) {
-    // Simple and direct scrolling
-    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+  // Find the parent FadedScrollableDiv (the one with maskheight attribute)
+  const parentScrollable = messagesContainer.value?.closest('[maskheight]')
+  if (parentScrollable) {
+    parentScrollable.scrollTop = parentScrollable.scrollHeight
   }
 }
 
@@ -155,22 +192,6 @@ onMounted(() => {
   nextTick(() => {
     scrollToBottom()
   })
-})
-
-// Also scroll to bottom when messages change
-watch(() => props.messages, () => {
-  nextTick(() => {
-    scrollToBottom()
-  })
-}, { deep: true, immediate: true })
-
-// Additional watcher for when the container is ready
-watch(() => messagesContainer.value, (container) => {
-  if (container) {
-    nextTick(() => {
-      scrollToBottom()
-    })
-  }
 })
 
 function formatWhapiMessage(message) {
@@ -377,27 +398,99 @@ function handleImageError(event) {
   // Optionally show a fallback or error message
   event.target.style.display = 'none'
 }
+
+function handleAudioLoaded(event) {
+  console.log('Audio loaded successfully:', event.target.src)
+  console.log('Audio duration:', event.target.duration)
+}
+
+function handleAudioError(event) {
+  console.log('Audio failed to load:', event.target.src)
+  console.log('Audio error:', event.target.error)
+}
+
+// Audio player functions
+function toggleAudio(event, audioSrc) {
+  const btn = event.currentTarget
+  const audioPlayer = btn.closest('.audio-player')
+  const audio = audioPlayer.querySelector('audio')
+  const progressFill = audioPlayer.querySelector('.progress-fill')
+  const duration = audioPlayer.querySelector('.audio-duration')
+  const playIcon = btn.querySelector('.play-icon')
+  const pauseIcon = btn.querySelector('.pause-icon')
+  
+  if (audio.paused) {
+    // Play audio
+    audio.play()
+    btn.classList.add('playing')
+    playIcon.style.display = 'none'
+    pauseIcon.style.display = 'block'
+    
+    // Update duration display
+    audio.addEventListener('loadedmetadata', function() {
+      const audioDuration = audio.duration
+      const formattedDuration = formatTime(audioDuration)
+      duration.textContent = `0:00 / ${formattedDuration}`
+    }, { once: true })
+    
+    // Update progress
+    audio.addEventListener('timeupdate', function() {
+      const currentTime = audio.currentTime
+      const audioDuration = audio.duration
+      const progress = (currentTime / audioDuration) * 100
+      progressFill.style.width = `${progress}%`
+      
+      const formattedCurrent = formatTime(currentTime)
+      const formattedDuration = formatTime(audioDuration)
+      duration.textContent = `${formattedCurrent} / ${formattedDuration}`
+    })
+    
+    // Handle audio end
+    audio.addEventListener('ended', function() {
+      btn.classList.remove('playing')
+      progressFill.style.width = '0%'
+      playIcon.style.display = 'block'
+      pauseIcon.style.display = 'none'
+      duration.textContent = `0:00 / ${formatTime(audio.duration)}`
+    }, { once: true })
+    
+  } else {
+    // Pause audio
+    audio.pause()
+    btn.classList.remove('playing')
+    playIcon.style.display = 'block'
+    pauseIcon.style.display = 'none'
+  }
+}
+
+function seekAudio(event, audioSrc) {
+  const progressBar = event.currentTarget
+  const audioPlayer = progressBar.closest('.audio-player')
+  const audio = audioPlayer.querySelector('audio')
+  const progressFill = audioPlayer.querySelector('.progress-fill')
+  
+  if (audio.duration) {
+    const rect = progressBar.getBoundingClientRect()
+    const clickX = event.clientX - rect.left
+    const progressBarWidth = rect.width
+    const percentage = (clickX / progressBarWidth) * 100
+    const newTime = (percentage / 100) * audio.duration
+    
+    audio.currentTime = newTime
+    progressFill.style.width = `${percentage}%`
+  }
+}
+
+function formatTime(seconds) {
+  if (isNaN(seconds)) return '0:00'
+  
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = Math.floor(seconds % 60)
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
+}
 </script>
 
 <style scoped>
-.overflow-y-auto {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
-}
-
-.overflow-y-auto::-webkit-scrollbar {
-  width: 6px;
-}
-
-.overflow-y-auto::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.overflow-y-auto::-webkit-scrollbar-thumb {
-  background-color: rgba(156, 163, 175, 0.5);
-  border-radius: 3px;
-}
-
 .max-w-[80%] {
   max-width: 80%;
 }
@@ -414,7 +507,135 @@ video {
   max-height: 300px;
 }
 
+/* Custom Audio Player Styling */
+.audio-player {
+  display: flex;
+  flex-direction: column;
+  margin: 6px 0;
+  padding: 12px 16px;
+  border-radius: 18px;
+  background: var(--message-received-bg, #f3f4f6);
+  border: 1px solid var(--border-color, #e5e7eb);
+  box-shadow: 0 1px 3px var(--shadow-color, rgba(0, 0, 0, 0.1));
+  max-width: 280px;
+  min-width: 200px;
+  position: relative;
+  overflow: hidden;
+}
+
+.audio-player-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.audio-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--primary-color, #3b82f6);
+  color: white;
+  flex-shrink: 0;
+}
+
+.audio-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.audio-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-color, #374151);
+  margin-bottom: 2px;
+}
+
+.audio-duration {
+  font-size: 12px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.audio-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.play-pause-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--primary-color, #3b82f6);
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.play-pause-btn:hover {
+  background: var(--primary-hover, #2563eb);
+  transform: scale(1.05);
+}
+
+.play-pause-btn.playing {
+  background: var(--primary-active, #1d4ed8);
+}
+
+.audio-progress {
+  width: 100%;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--progress-bg, #e5e7eb);
+  border-radius: 2px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-bar:hover {
+  background: var(--progress-hover, #d1d5db);
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--primary-color, #3b82f6);
+  border-radius: 2px;
+  width: 0%;
+  transition: width 0.1s ease;
+  position: relative;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  background: var(--primary-color, #3b82f6);
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.progress-bar:hover .progress-fill::after {
+  opacity: 1;
+}
+
+/* Legacy audio element styling (hidden) */
 audio {
-  max-width: 300px;
+  display: none !important;
 }
 </style> 

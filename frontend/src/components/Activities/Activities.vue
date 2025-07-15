@@ -40,7 +40,7 @@
       </div>
       <div v-else-if="title == 'Personal WhatsApp'">
         <PersonalWhatsAppArea
-          class="px-3 sm:px-10 h-[calc(100vh-200px)]"
+          class="px-3 sm:px-10"
           v-model="whapiMessages"
           v-model:reply="replyMessage"
           :messages="whapiMessages.data || []"
