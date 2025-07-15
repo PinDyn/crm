@@ -162,6 +162,7 @@ const props = defineProps({
 
 const newMessage = ref('')
 const messagesContainer = ref(null)
+const previousMessageCount = ref(0)
 const emit = defineEmits(['reply', 'react', 'delete', 'reload'])
 
 const messages = computed(() => {
@@ -181,11 +182,20 @@ const messages = computed(() => {
   }));
 });
 
-// Simplified scrolling logic - only one watcher
-watch(() => props.messages, () => {
-  nextTick(() => {
-    scrollToBottom()
-  })
+// Smart scrolling logic - only scroll when new messages are added
+watch(() => props.messages, (newMessages, oldMessages) => {
+  const currentCount = newMessages?.length || 0
+  const previousCount = previousMessageCount.value
+  
+  // Only scroll if new messages were added
+  if (currentCount > previousCount) {
+    nextTick(() => {
+      scrollToBottom()
+    })
+  }
+  
+  // Update the previous count
+  previousMessageCount.value = currentCount
 }, { deep: true })
 
 // Function to scroll to bottom
